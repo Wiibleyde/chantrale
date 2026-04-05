@@ -1,17 +1,18 @@
 package bot
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"LsmsBot/internal/bot/embeds"
 	"LsmsBot/internal/bot/features/doctor"
 	"LsmsBot/internal/bot/features/duty"
 	"LsmsBot/internal/bot/features/labo"
 	"LsmsBot/internal/bot/features/radio"
 	"LsmsBot/internal/bot/router"
 	"LsmsBot/internal/config"
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -21,7 +22,7 @@ func Run() {
 
 	s, err := discordgo.New("Bot " + cfg.DiscordToken)
 	if err != nil {
-		log.Fatalf("Error creating Discord session: %v", err)
+		logger.Fatal("Error creating Discord session", "error", err)
 	}
 
 	s.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers
@@ -49,25 +50,32 @@ func Run() {
 	allCommands = append(allCommands, labo.Commands...)
 
 	s.AddHandler(func(s *discordgo.Session, ready *discordgo.Ready) {
-		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
+		logger.Info("Logged in", "user", s.State.User.Username+"#"+s.State.User.Discriminator)
 		for _, guildID := range cfg.GuildIDs {
 			for _, cmd := range allCommands {
 				if _, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, cmd); err != nil {
-					log.Printf("Cannot create '%v' command in guild %v: %v", cmd.Name, guildID, err)
+					logger.Error("Cannot create command", "command", cmd.Name, "guild", guildID, "error", err)
 				}
 			}
-			log.Printf("Commands registered in guild %s", guildID)
+			logger.Info("Commands registered", "guild", guildID)
 		}
 	})
 
 	if err := s.Open(); err != nil {
-		log.Fatalf("Error opening connection: %v", err)
+		logger.Fatal("Error opening connection", "error", err)
 	}
 	defer s.Close()
 
-	log.Println("Bot is running. Press CTRL-C to exit.")
+	embeds.Init(s)
+	duty.StartScheduler(s)
+
+	logger.Info("Bot is running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
-	log.Println("Shutting down...")
+
+	logger.Info("Sending duty summary before shutdown...")
+	duty.SendShutdownSummary(s)
+
+	logger.Info("Shutting down...")
 }

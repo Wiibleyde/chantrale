@@ -2,7 +2,8 @@ package radio
 
 import (
 	"encoding/base64"
-	"time"
+
+	"LsmsBot/internal/bot/embeds"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -12,17 +13,8 @@ type RadioEntry struct {
 	Frequency string
 }
 
-func BaseEmbed() *discordgo.MessageEmbed {
-	return &discordgo.MessageEmbed{
-		Author: &discordgo.MessageEmbedAuthor{
-			Name: "Chantrale",
-		},
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-}
-
 func BuildRadioEmbed(radios []RadioEntry) *discordgo.MessageEmbed {
-	embed := BaseEmbed()
+	embed := embeds.BaseEmbed()
 	embed.Title = "Gestionnaire de radios"
 	embed.Color = 0x0099FF
 

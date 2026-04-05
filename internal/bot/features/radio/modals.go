@@ -2,8 +2,9 @@ package radio
 
 import (
 	"encoding/base64"
-	"log"
 	"strings"
+
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -25,7 +26,7 @@ func HandleRadioAddModal(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	msg, err := s.ChannelMessage(channelID, messageID)
 	if err != nil {
-		log.Printf("Error fetching message: %v", err)
+		logger.Error("Error fetching message", "error", err)
 		respondEphemeral(s, i, "Erreur lors de la récupération du message.")
 		return
 	}
@@ -42,7 +43,7 @@ func HandleRadioAddModal(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Embeds:     &[]*discordgo.MessageEmbed{embed},
 		Components: &components,
 	}); err != nil {
-		log.Printf("Error editing radio message: %v", err)
+		logger.Error("Error editing radio message", "error", err)
 		respondEphemeral(s, i, "Erreur lors de la modification du message.")
 		return
 	}
@@ -75,7 +76,7 @@ func HandleRadioEditModal(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
 	msg, err := s.ChannelMessage(channelID, messageID)
 	if err != nil {
-		log.Printf("Error fetching message: %v", err)
+		logger.Error("Error fetching message", "error", err)
 		respondEphemeral(s, i, "Erreur lors de la récupération du message.")
 		return
 	}
@@ -97,7 +98,7 @@ func HandleRadioEditModal(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		Embeds:     &[]*discordgo.MessageEmbed{embed},
 		Components: &components,
 	}); err != nil {
-		log.Printf("Error editing radio message: %v", err)
+		logger.Error("Error editing radio message", "error", err)
 		respondEphemeral(s, i, "Erreur lors de la modification du message.")
 		return
 	}

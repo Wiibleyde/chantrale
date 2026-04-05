@@ -2,9 +2,10 @@ package labo
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
+
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -111,18 +112,18 @@ func notifyCompletion(s *discordgo.Session, entry *LaboEntry) {
 		Embeds:     &[]*discordgo.MessageEmbed{embed},
 		Components: &components,
 	}); err != nil {
-		log.Printf("Error editing labo message: %v", err)
+		logger.Error("Error editing labo message", "error", err)
 	}
 
 	ping, err := s.ChannelMessageSend(entry.ChannelID, fmt.Sprintf("<@%s> Votre analyse est terminée !", entry.UserID))
 	if err != nil {
-		log.Printf("Error sending ping: %v", err)
+		logger.Error("Error sending ping", "error", err)
 		return
 	}
 
 	time.AfterFunc(60*time.Second, func() {
 		if err := s.ChannelMessageDelete(entry.ChannelID, ping.ID); err != nil {
-			log.Printf("Error deleting ping: %v", err)
+			logger.Error("Error deleting ping", "error", err)
 		}
 	})
 }

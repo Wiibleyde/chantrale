@@ -2,10 +2,10 @@ package database
 
 import (
 	"fmt"
-	"log"
 
 	"LsmsBot/internal/config"
 	"LsmsBot/internal/database/models"
+	"LsmsBot/internal/logger"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -21,11 +21,11 @@ func Init() {
 	)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		logger.Fatal("Failed to connect to database", "error", err)
 	}
 	if err := db.AutoMigrate(&models.DutyManager{}); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
+		logger.Fatal("Failed to migrate database", "error", err)
 	}
 	DB = db
-	log.Println("Database connected and migrated.")
+	logger.Info("Database connected and migrated")
 }

@@ -2,19 +2,11 @@ package labo
 
 import (
 	"fmt"
-	"time"
+
+	"LsmsBot/internal/bot/embeds"
 
 	"github.com/bwmarrin/discordgo"
 )
-
-func BaseEmbed() *discordgo.MessageEmbed {
-	return &discordgo.MessageEmbed{
-		Author: &discordgo.MessageEmbedAuthor{
-			Name: "Chantrale",
-		},
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-}
 
 func GetAnalyseTypeName(t string) string {
 	switch t {
@@ -32,7 +24,7 @@ func GetAnalyseTypeName(t string) string {
 }
 
 func BuildLaboWaitingEmbed(entry *LaboEntry) *discordgo.MessageEmbed {
-	embed := BaseEmbed()
+	embed := embeds.BaseEmbed()
 	embed.Title = "Analyse en cours"
 	embed.Color = 0xFF8800
 	embed.Fields = []*discordgo.MessageEmbedField{
@@ -45,7 +37,7 @@ func BuildLaboWaitingEmbed(entry *LaboEntry) *discordgo.MessageEmbed {
 }
 
 func BuildLaboResultEmbed(entry *LaboEntry) *discordgo.MessageEmbed {
-	embed := BaseEmbed()
+	embed := embeds.BaseEmbed()
 	embed.Title = "Analyse terminée"
 	embed.Color = 0x00FF00
 	embed.Fields = []*discordgo.MessageEmbedField{
@@ -58,7 +50,7 @@ func BuildLaboResultEmbed(entry *LaboEntry) *discordgo.MessageEmbed {
 }
 
 func BuildLaboCancelledEmbed(entry *LaboEntry) *discordgo.MessageEmbed {
-	embed := BaseEmbed()
+	embed := embeds.BaseEmbed()
 	embed.Title = "Analyse annulée"
 	embed.Color = 0xFF0000
 	embed.Fields = []*discordgo.MessageEmbedField{

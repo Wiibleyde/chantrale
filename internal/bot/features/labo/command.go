@@ -2,10 +2,11 @@ package labo
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"strconv"
 	"time"
+
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -153,7 +154,7 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Flags: discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("Error deferring: %v", err)
+		logger.Error("Error deferring", "error", err)
 		return
 	}
 
@@ -211,12 +212,12 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 	if err != nil {
-		log.Printf("Error sending labo message: %v", err)
+		logger.Error("Error sending labo message", "error", err)
 		if _, err2 := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "Erreur lors de l'envoi du message d'analyse.",
 			Flags:   discordgo.MessageFlagsEphemeral,
 		}); err2 != nil {
-			log.Printf("Error creating followup: %v", err2)
+			logger.Error("Error creating followup", "error", err2)
 		}
 		return
 	}
@@ -228,7 +229,7 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Content: fmt.Sprintf("Analyse lancée. Résultat dans %d minute(s).", analyseTime),
 		Flags:   discordgo.MessageFlagsEphemeral,
 	}); err != nil {
-		log.Printf("Error creating followup: %v", err)
+		logger.Error("Error creating followup", "error", err)
 	}
 }
 

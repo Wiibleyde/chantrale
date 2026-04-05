@@ -5,20 +5,13 @@ import (
 	"strings"
 	"time"
 
+	"LsmsBot/internal/bot/embeds"
+
 	"github.com/bwmarrin/discordgo"
 )
 
-func BaseEmbed() *discordgo.MessageEmbed {
-	return &discordgo.MessageEmbed{
-		Author: &discordgo.MessageEmbedAuthor{
-			Name: "Chantrale",
-		},
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-}
-
 func BuildDutyEmbed(onDuty, onCall, offRadio []string) (*discordgo.MessageEmbed, discordgo.ActionsRow) {
-	embed := BaseEmbed()
+	embed := embeds.BaseEmbed()
 	embed.Title = "Gestionnaire de service"
 	embed.Color = 0x0099FF
 
@@ -30,9 +23,6 @@ func BuildDutyEmbed(onDuty, onCall, offRadio []string) (*discordgo.MessageEmbed,
 		{Name: fmt.Sprintf("En service (%d) :", len(onDuty)), Value: dutyList, Inline: true},
 		{Name: fmt.Sprintf("En semi service (%d) :", len(onCall)), Value: onCallList, Inline: true},
 		{Name: fmt.Sprintf("Off radio (%d) :", len(offRadio)), Value: offRadioList, Inline: true},
-	}
-	embed.Footer = &discordgo.MessageEmbedFooter{
-		Text: "⚠️ Cela peut prendre 5 secondes pour que les changements soient pris en compte.",
 	}
 
 	row := discordgo.ActionsRow{
@@ -70,7 +60,7 @@ func formatList(ids []string, empty string) string {
 }
 
 func BuildDutyUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
-	embed := BaseEmbed()
+	embed := embeds.BaseEmbed()
 	if take {
 		embed.Title = "Prise de service"
 		embed.Color = 0x00FF00
@@ -84,7 +74,7 @@ func BuildDutyUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
 }
 
 func BuildOnCallUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
-	embed := BaseEmbed()
+	embed := embeds.BaseEmbed()
 	if take {
 		embed.Title = "Début du semi service"
 		embed.Color = 0x00FF00
@@ -97,8 +87,24 @@ func BuildOnCallUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
 	return embed
 }
 
+func BuildSummaryEmbed(from, to time.Time, onDuty, onCall, offRadio []string) *discordgo.MessageEmbed {
+	embed := embeds.BaseEmbed()
+	embed.Title = "Récapitulatif du service"
+	embed.Color = 0x5865F2
+	embed.Description = fmt.Sprintf(
+		"Période du <t:%d:f> au <t:%d:f>",
+		from.Unix(), to.Unix(),
+	)
+	embed.Fields = []*discordgo.MessageEmbedField{
+		{Name: "Service", Value: formatList(onDuty, "Aucun :("), Inline: false},
+		{Name: "Semi service", Value: formatList(onCall, "Aucun :("), Inline: false},
+		{Name: "Off radio", Value: formatList(offRadio, "Aucun"), Inline: false},
+	}
+	return embed
+}
+
 func BuildOffRadioUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
-	embed := BaseEmbed()
+	embed := embeds.BaseEmbed()
 	if take {
 		embed.Title = "Passage off radio"
 		embed.Color = 0xFF8800

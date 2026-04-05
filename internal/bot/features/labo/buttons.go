@@ -1,7 +1,7 @@
 package labo
 
 import (
-	"log"
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -30,7 +30,7 @@ func HandleCancelButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Embeds:     &[]*discordgo.MessageEmbed{embed},
 		Components: &components,
 	}); err != nil {
-		log.Printf("Error editing labo message: %v", err)
+		logger.Error("Error editing labo message", "error", err)
 	}
 
 	respondEphemeral(s, i, "Analyse annulée avec succès.")
@@ -44,6 +44,6 @@ func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, cont
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("Error responding to interaction: %v", err)
+		logger.Error("Error responding to interaction", "error", err)
 	}
 }

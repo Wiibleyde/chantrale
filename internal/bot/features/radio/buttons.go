@@ -2,8 +2,9 @@ package radio
 
 import (
 	"encoding/base64"
-	"log"
 	"strings"
+
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -45,7 +46,7 @@ func HandleRadioAdd(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		},
 	}); err != nil {
-		log.Printf("Error responding with modal: %v", err)
+		logger.Error("Error responding with modal", "error", err)
 	}
 }
 
@@ -84,7 +85,7 @@ func HandleRadioRemove(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		},
 	}); err != nil {
-		log.Printf("Error responding with select menu: %v", err)
+		logger.Error("Error responding with select menu", "error", err)
 	}
 }
 
@@ -149,7 +150,7 @@ func HandleRadioEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 		},
 	}); err != nil {
-		log.Printf("Error responding with modal: %v", err)
+		logger.Error("Error responding with modal", "error", err)
 	}
 }
 
@@ -173,7 +174,7 @@ func HandleRadioRemoveSelect(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	msg, err := s.ChannelMessage(channelID, messageID)
 	if err != nil {
-		log.Printf("Error fetching message: %v", err)
+		logger.Error("Error fetching message", "error", err)
 		respondEphemeral(s, i, "Erreur lors de la récupération du message.")
 		return
 	}
@@ -195,7 +196,7 @@ func HandleRadioRemoveSelect(s *discordgo.Session, i *discordgo.InteractionCreat
 		Embeds:     &[]*discordgo.MessageEmbed{embed},
 		Components: &components,
 	}); err != nil {
-		log.Printf("Error editing radio message: %v", err)
+		logger.Error("Error editing radio message", "error", err)
 		respondEphemeral(s, i, "Erreur lors de la modification du message.")
 		return
 	}

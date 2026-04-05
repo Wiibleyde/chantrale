@@ -1,10 +1,9 @@
 package duty
 
 import (
-	"log"
-
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -29,11 +28,14 @@ func handleRoleToggle(s *discordgo.Session, i *discordgo.InteractionCreate, role
 	}
 
 	var roleID *string
+	var oppositeRoleID *string
 	switch roleType {
 	case "duty":
 		roleID = dm.DutyRoleID
+		oppositeRoleID = dm.OnCallRoleID
 	case "oncall":
 		roleID = dm.OnCallRoleID
+		oppositeRoleID = dm.DutyRoleID
 	case "offradio":
 		roleID = dm.OffRadioRoleID
 	}
@@ -45,17 +47,20 @@ func handleRoleToggle(s *discordgo.Session, i *discordgo.InteractionCreate, role
 
 	userID := i.Member.User.ID
 	hasRole := false
+	hasOpposite := false
 	for _, r := range i.Member.Roles {
 		if r == *roleID {
 			hasRole = true
-			break
+		}
+		if oppositeRoleID != nil && r == *oppositeRoleID {
+			hasOpposite = true
 		}
 	}
 
 	var msgContent string
 	if hasRole {
 		if err := s.GuildMemberRoleRemove(i.GuildID, userID, *roleID); err != nil {
-			log.Printf("Error removing role: %v", err)
+			logger.Error("Error removing role", "error", err)
 			respondEphemeral(s, i, "Erreur lors de la modification du rôle.")
 			return
 		}
@@ -68,8 +73,16 @@ func handleRoleToggle(s *discordgo.Session, i *discordgo.InteractionCreate, role
 			msgContent = "Vous avez quitté le off radio."
 		}
 	} else {
+		// Remove the opposite role before adding this one (duty <-> oncall swap)
+		if hasOpposite && oppositeRoleID != nil {
+			if err := s.GuildMemberRoleRemove(i.GuildID, userID, *oppositeRoleID); err != nil {
+				logger.Error("Error removing opposite role", "error", err)
+				respondEphemeral(s, i, "Erreur lors de la modification du rôle.")
+				return
+			}
+		}
 		if err := s.GuildMemberRoleAdd(i.GuildID, userID, *roleID); err != nil {
-			log.Printf("Error adding role: %v", err)
+			logger.Error("Error adding role", "error", err)
 			respondEphemeral(s, i, "Erreur lors de la modification du rôle.")
 			return
 		}
@@ -85,7 +98,7 @@ func handleRoleToggle(s *discordgo.Session, i *discordgo.InteractionCreate, role
 
 	members, err := s.GuildMembers(i.GuildID, "", 1000)
 	if err != nil {
-		log.Printf("Error fetching members: %v", err)
+		logger.Error("Error fetching members", "error", err)
 	}
 
 	var onDuty, onCall, offRadio []string
@@ -108,7 +121,7 @@ func handleRoleToggle(s *discordgo.Session, i *discordgo.InteractionCreate, role
 		Embeds:     &[]*discordgo.MessageEmbed{embed},
 		Components: &components,
 	}); err != nil {
-		log.Printf("Error editing duty message: %v", err)
+		logger.Error("Error editing duty message", "error", err)
 	}
 
 	respondEphemeral(s, i, msgContent)

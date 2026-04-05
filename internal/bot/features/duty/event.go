@@ -1,12 +1,12 @@
 package duty
 
 import (
-	"log"
 	"sync"
 	"time"
 
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -25,11 +25,11 @@ func HandleGuildMemberUpdate(s *discordgo.Session, e *discordgo.GuildMemberUpdat
 	}
 
 	var prevRoles []string
-	if oldMember, err := s.State.Member(e.GuildID, e.Member.User.ID); err == nil {
-		prevRoles = oldMember.Roles
+	if e.BeforeUpdate != nil {
+		prevRoles = e.BeforeUpdate.Roles
 	}
 
-	debounceMap[key] = time.AfterFunc(500*time.Millisecond, func() {
+	debounceMap[key] = time.AfterFunc(100*time.Millisecond, func() {
 		debounceMu.Lock()
 		delete(debounceMap, key)
 		debounceMu.Unlock()
@@ -51,13 +51,13 @@ func handleMemberRoleChange(s *discordgo.Session, guildID string, member *discor
 
 	var dms []models.DutyManager
 	if err := database.DB.Where("guild_id = ?", guildID).Find(&dms).Error; err != nil {
-		log.Printf("Error fetching DutyManagers: %v", err)
+		logger.Error("Error fetching DutyManagers", "error", err)
 		return
 	}
 
 	members, err := s.GuildMembers(guildID, "", 1000)
 	if err != nil {
-		log.Printf("Error fetching members: %v", err)
+		logger.Error("Error fetching members", "error", err)
 		return
 	}
 
@@ -98,7 +98,7 @@ func handleMemberRoleChange(s *discordgo.Session, guildID string, member *discor
 			Embeds:     &[]*discordgo.MessageEmbed{embed},
 			Components: &components,
 		}); err != nil {
-			log.Printf("Error editing duty message: %v", err)
+			logger.Error("Error editing duty message", "error", err)
 		}
 
 		if dm.LogsChannelID == nil {
@@ -110,16 +110,19 @@ func handleMemberRoleChange(s *discordgo.Session, guildID string, member *discor
 			var logEmbed *discordgo.MessageEmbed
 			if dm.DutyRoleID != nil && *dm.DutyRoleID == roleID {
 				logEmbed = BuildDutyUpdateEmbed(userID, true)
+				trackDuty(guildID, userID)
 			} else if dm.OnCallRoleID != nil && *dm.OnCallRoleID == roleID {
 				logEmbed = BuildOnCallUpdateEmbed(userID, true)
+				trackOnCall(guildID, userID)
 			} else if dm.OffRadioRoleID != nil && *dm.OffRadioRoleID == roleID {
 				logEmbed = BuildOffRadioUpdateEmbed(userID, true)
+				trackOffRadio(guildID, userID)
 			}
 			if logEmbed != nil {
 				if _, err := s.ChannelMessageSendComplex(*dm.LogsChannelID, &discordgo.MessageSend{
 					Embeds: []*discordgo.MessageEmbed{logEmbed},
 				}); err != nil {
-					log.Printf("Error sending log embed: %v", err)
+					logger.Error("Error sending log embed", "error", err)
 				}
 			}
 		}
@@ -136,7 +139,7 @@ func handleMemberRoleChange(s *discordgo.Session, guildID string, member *discor
 				if _, err := s.ChannelMessageSendComplex(*dm.LogsChannelID, &discordgo.MessageSend{
 					Embeds: []*discordgo.MessageEmbed{logEmbed},
 				}); err != nil {
-					log.Printf("Error sending log embed: %v", err)
+					logger.Error("Error sending log embed", "error", err)
 				}
 			}
 		}

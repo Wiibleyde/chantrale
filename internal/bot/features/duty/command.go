@@ -1,10 +1,9 @@
 package duty
 
 import (
-	"log"
-
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -127,7 +126,7 @@ func handleAdd(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discor
 		Components: []discordgo.MessageComponent{row},
 	})
 	if err != nil {
-		log.Printf("Error sending duty message: %v", err)
+		logger.Error("Error sending duty message", "error", err)
 		respondEphemeral(s, i, "Erreur lors de l'envoi du message.")
 		return
 	}
@@ -149,7 +148,7 @@ func handleAdd(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discor
 	}
 
 	if err := database.DB.Create(&dm).Error; err != nil {
-		log.Printf("Error saving DutyManager: %v", err)
+		logger.Error("Error saving DutyManager", "error", err)
 		respondEphemeral(s, i, "Erreur lors de l'enregistrement en base de données.")
 		return
 	}
@@ -173,11 +172,11 @@ func handleRemove(s *discordgo.Session, i *discordgo.InteractionCreate, sub *dis
 	}
 
 	if err := s.ChannelMessageDelete(dm.ChannelID, messageID); err != nil {
-		log.Printf("Error deleting duty message: %v", err)
+		logger.Error("Error deleting duty message", "error", err)
 	}
 
 	if err := database.DB.Delete(&dm).Error; err != nil {
-		log.Printf("Error deleting DutyManager: %v", err)
+		logger.Error("Error deleting DutyManager", "error", err)
 		respondEphemeral(s, i, "Erreur lors de la suppression.")
 		return
 	}
@@ -226,6 +225,6 @@ func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, cont
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("Error responding to interaction: %v", err)
+		logger.Error("Error responding to interaction", "error", err)
 	}
 }

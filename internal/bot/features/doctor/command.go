@@ -2,7 +2,8 @@ package doctor
 
 import (
 	"fmt"
-	"log"
+
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -66,7 +67,7 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Flags: discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("Error deferring: %v", err)
+		logger.Error("Error deferring", "error", err)
 		return
 	}
 
@@ -91,12 +92,12 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Embeds: []*discordgo.MessageEmbed{initialEmbed},
 	})
 	if err != nil {
-		log.Printf("Error creating forum thread: %v", err)
+		logger.Error("Error creating forum thread", "error", err)
 		if _, err2 := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "Erreur lors de la création du fil de discussion.",
 			Flags:   discordgo.MessageFlagsEphemeral,
 		}); err2 != nil {
-			log.Printf("Error creating followup: %v", err2)
+			logger.Error("Error creating followup", "error", err2)
 		}
 		return
 	}
@@ -106,12 +107,12 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if _, err := s.ChannelMessageSendComplex(thread.ID, &discordgo.MessageSend{
 			Embeds: []*discordgo.MessageEmbed{embed},
 		}); err != nil {
-			log.Printf("Error sending formation embed: %v", err)
+			logger.Error("Error sending formation embed", "error", err)
 			continue
 		}
 		for _, competence := range f.Competences {
 			if _, err := s.ChannelMessageSend(thread.ID, fmt.Sprintf("- %s", competence)); err != nil {
-				log.Printf("Error sending competence message: %v", err)
+				logger.Error("Error sending competence message", "error", err)
 			}
 		}
 	}
@@ -120,7 +121,7 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Content: fmt.Sprintf("Dossier de formation créé avec succès dans <#%s>.", thread.ID),
 		Flags:   discordgo.MessageFlagsEphemeral,
 	}); err != nil {
-		log.Printf("Error creating followup: %v", err)
+		logger.Error("Error creating followup", "error", err)
 	}
 }
 
@@ -140,6 +141,6 @@ func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, cont
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("Error responding to interaction: %v", err)
+		logger.Error("Error responding to interaction", "error", err)
 	}
 }

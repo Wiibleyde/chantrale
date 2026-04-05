@@ -1,7 +1,7 @@
 package radio
 
 import (
-	"log"
+	"LsmsBot/internal/logger"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -27,7 +27,7 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Embeds:     []*discordgo.MessageEmbed{embed},
 		Components: components,
 	}); err != nil {
-		log.Printf("Error sending radio message: %v", err)
+		logger.Error("Error sending radio message", "error", err)
 		respondEphemeral(s, i, "Erreur lors de l'envoi du message.")
 		return
 	}
@@ -43,6 +43,6 @@ func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, cont
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		log.Printf("Error responding to interaction: %v", err)
+		logger.Error("Error responding to interaction", "error", err)
 	}
 }
