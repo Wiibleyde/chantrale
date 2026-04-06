@@ -17,7 +17,7 @@ func BaseEmbed() *discordgo.MessageEmbed {
 		Color:     0xFFFFFF,
 		Timestamp: time.Now().Format(time.RFC3339),
 		Footer: &discordgo.MessageEmbedFooter{
-			Text: "Chantrale – Toujours prête à vous aider.",
+			Text: "Chantrale – LSMS",
 		},
 	}
 	if session != nil && session.State != nil && session.State.User != nil {

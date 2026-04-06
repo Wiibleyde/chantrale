@@ -16,7 +16,7 @@ type Formation struct {
 var formations = []Formation{
 	{
 		Title:       "Formations secondaires",
-		Competences: []string{"PPA", "Hélicoptère", "Bateau", "Psychiatrie", "Pôle funéraire"},
+		Competences: []string{"PPA", "Hélicoptère", "Bateau", "Psychiatrie", "Pôle funéraire", "Dispatcher"},
 	},
 	{
 		Title:       "Stagiaire - Explications",
