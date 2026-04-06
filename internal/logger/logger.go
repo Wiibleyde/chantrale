@@ -72,8 +72,8 @@ func (h *prettyHandler) Handle(_ context.Context, r slog.Record) error {
 	return err
 }
 
-func (h *prettyHandler) WithAttrs(attrs []slog.Attr) slog.Handler  { return h }
-func (h *prettyHandler) WithGroup(name string) slog.Handler        { return h }
+func (h *prettyHandler) WithAttrs(attrs []slog.Attr) slog.Handler { return h }
+func (h *prettyHandler) WithGroup(name string) slog.Handler       { return h }
 
 var l *slog.Logger
 

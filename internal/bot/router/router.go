@@ -19,10 +19,10 @@ type prefixEntry struct {
 
 // Router dispatches Discord interactions to registered handlers.
 type Router struct {
-	commands      map[string]Handler // exact command name
-	buttons       map[string]Handler // exact button/select customID
-	buttonPrefixes []prefixEntry     // prefix-matched component customIDs
-	modalPrefixes  []prefixEntry     // prefix-matched modal customIDs
+	commands       map[string]Handler // exact command name
+	buttons        map[string]Handler // exact button/select customID
+	buttonPrefixes []prefixEntry      // prefix-matched component customIDs
+	modalPrefixes  []prefixEntry      // prefix-matched modal customIDs
 }
 
 // New creates a ready-to-use Router.
