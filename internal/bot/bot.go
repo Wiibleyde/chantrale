@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"LsmsBot/internal/bot/embeds"
+	"LsmsBot/internal/bot/features/bed"
 	"LsmsBot/internal/bot/features/doctor"
 	"LsmsBot/internal/bot/features/duty"
 	"LsmsBot/internal/bot/features/labo"
@@ -40,6 +41,7 @@ func Run() {
 	radio.Register(r)
 	doctor.Register(r)
 	labo.Register(r)
+	bed.Register(r)
 	r.Attach(s)
 
 	// Collect all slash commands from each feature
@@ -48,6 +50,7 @@ func Run() {
 	allCommands = append(allCommands, radio.Commands...)
 	allCommands = append(allCommands, doctor.Commands...)
 	allCommands = append(allCommands, labo.Commands...)
+	allCommands = append(allCommands, bed.Commands...)
 
 	s.AddHandler(func(s *discordgo.Session, ready *discordgo.Ready) {
 		logger.Info("Logged in", "user", s.State.User.Username+"#"+s.State.User.Discriminator)
