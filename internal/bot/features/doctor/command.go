@@ -13,6 +13,7 @@ type Formation struct {
 	Competences []string
 }
 
+// TODO: DYNAMIC
 var formations = []Formation{
 	{
 		Title:       "Formations secondaires",
