@@ -1,240 +1,240 @@
 package labo
 
 import (
-"fmt"
-"math/rand"
-"strconv"
-"time"
+	"fmt"
+	"math/rand"
+	"strconv"
+	"time"
 
-"LsmsBot/internal/logger"
+	"LsmsBot/internal/logger"
 
-"github.com/disgoorg/disgo/discord"
-"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
 )
 
 var Commands = []discord.ApplicationCommandCreate{
-discord.SlashCommandCreate{
-Name:        "labo",
-Description: "Effectuer une analyse de laboratoire",
-Options: []discord.ApplicationCommandOption{
-discord.ApplicationCommandOptionSubCommand{
-Name:        "bloodgroup",
-Description: "Analyse de groupe sanguin",
-Options:     commonLaboOptions(bloodgroupChoices()),
-},
-discord.ApplicationCommandOptionSubCommand{
-Name:        "alcohole",
-Description: "Analyse de taux d'alcoolémie",
-Options:     commonLaboOptions(alcoholeChoices()),
-},
-discord.ApplicationCommandOptionSubCommand{
-Name:        "drugs",
-Description: "Analyse de dépistage de drogues",
-Options:     drugsOptions(),
-},
-discord.ApplicationCommandOptionSubCommand{
-Name:        "diseases",
-Description: "Analyse de maladies",
-Options:     commonLaboOptions(diseasesChoices()),
-},
-},
-},
+	discord.SlashCommandCreate{
+		Name:        "labo",
+		Description: "Effectuer une analyse de laboratoire",
+		Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionSubCommand{
+				Name:        "bloodgroup",
+				Description: "Analyse de groupe sanguin",
+				Options:     commonLaboOptions(bloodgroupChoices()),
+			},
+			discord.ApplicationCommandOptionSubCommand{
+				Name:        "alcohole",
+				Description: "Analyse de taux d'alcoolémie",
+				Options:     commonLaboOptions(alcoholeChoices()),
+			},
+			discord.ApplicationCommandOptionSubCommand{
+				Name:        "drugs",
+				Description: "Analyse de dépistage de drogues",
+				Options:     drugsOptions(),
+			},
+			discord.ApplicationCommandOptionSubCommand{
+				Name:        "diseases",
+				Description: "Analyse de maladies",
+				Options:     commonLaboOptions(diseasesChoices()),
+			},
+		},
+	},
 }
 
 func commonLaboOptions(resultChoices []discord.ApplicationCommandOptionChoiceString) []discord.ApplicationCommandOption {
-return []discord.ApplicationCommandOption{
-discord.ApplicationCommandOptionString{Name: "nom_prenom", Description: "Nom et prénom du patient", Required: true},
-discord.ApplicationCommandOptionString{Name: "resultat", Description: "Résultat de l'analyse (optionnel)", Required: false, Choices: resultChoices},
-discord.ApplicationCommandOptionString{Name: "time", Description: "Durée de l'analyse en minutes (optionnel, 1-3 chiffres)", Required: false},
-}
+	return []discord.ApplicationCommandOption{
+		discord.ApplicationCommandOptionString{Name: "nom_prenom", Description: "Nom et prénom du patient", Required: true},
+		discord.ApplicationCommandOptionString{Name: "resultat", Description: "Résultat de l'analyse (optionnel)", Required: false, Choices: resultChoices},
+		discord.ApplicationCommandOptionString{Name: "time", Description: "Durée de l'analyse en minutes (optionnel, 1-3 chiffres)", Required: false},
+	}
 }
 
 func drugsOptions() []discord.ApplicationCommandOption {
-return []discord.ApplicationCommandOption{
-discord.ApplicationCommandOptionString{Name: "nom_prenom", Description: "Nom et prénom du patient", Required: true},
-discord.ApplicationCommandOptionString{
-Name:        "depistage",
-Description: "Type de dépistage",
-Required:    true,
-Choices: []discord.ApplicationCommandOptionChoiceString{
-{Name: "Cannabis", Value: "Cannabis"},
-{Name: "Cocaïne", Value: "Cocaïne"},
-{Name: "Héroïne", Value: "Héroïne"},
-{Name: "Amphétamines", Value: "Amphétamines"},
-{Name: "Ecstasy", Value: "Ecstasy"},
-{Name: "Méthamphétamine", Value: "Méthamphétamine"},
-},
-},
-discord.ApplicationCommandOptionString{Name: "resultat", Description: "Résultat de l'analyse (optionnel)", Required: false, Choices: drugsChoices()},
-discord.ApplicationCommandOptionString{Name: "time", Description: "Durée de l'analyse en minutes (optionnel, 1-3 chiffres)", Required: false},
-}
+	return []discord.ApplicationCommandOption{
+		discord.ApplicationCommandOptionString{Name: "nom_prenom", Description: "Nom et prénom du patient", Required: true},
+		discord.ApplicationCommandOptionString{
+			Name:        "depistage",
+			Description: "Type de dépistage",
+			Required:    true,
+			Choices: []discord.ApplicationCommandOptionChoiceString{
+				{Name: "Cannabis", Value: "Cannabis"},
+				{Name: "Cocaïne", Value: "Cocaïne"},
+				{Name: "Héroïne", Value: "Héroïne"},
+				{Name: "Amphétamines", Value: "Amphétamines"},
+				{Name: "Ecstasy", Value: "Ecstasy"},
+				{Name: "Méthamphétamine", Value: "Méthamphétamine"},
+			},
+		},
+		discord.ApplicationCommandOptionString{Name: "resultat", Description: "Résultat de l'analyse (optionnel)", Required: false, Choices: drugsChoices()},
+		discord.ApplicationCommandOptionString{Name: "time", Description: "Durée de l'analyse en minutes (optionnel, 1-3 chiffres)", Required: false},
+	}
 }
 
 func bloodgroupChoices() []discord.ApplicationCommandOptionChoiceString {
-return []discord.ApplicationCommandOptionChoiceString{
-{Name: "O+", Value: "O+"}, {Name: "A+", Value: "A+"}, {Name: "B+", Value: "B+"}, {Name: "AB+", Value: "AB+"},
-{Name: "O-", Value: "O-"}, {Name: "A-", Value: "A-"}, {Name: "B-", Value: "B-"}, {Name: "AB-", Value: "AB-"},
-}
+	return []discord.ApplicationCommandOptionChoiceString{
+		{Name: "O+", Value: "O+"}, {Name: "A+", Value: "A+"}, {Name: "B+", Value: "B+"}, {Name: "AB+", Value: "AB+"},
+		{Name: "O-", Value: "O-"}, {Name: "A-", Value: "A-"}, {Name: "B-", Value: "B-"}, {Name: "AB-", Value: "AB-"},
+	}
 }
 
 func alcoholeChoices() []discord.ApplicationCommandOptionChoiceString {
-return []discord.ApplicationCommandOptionChoiceString{
-{Name: "Négatif", Value: "Négatif"}, {Name: "Faible", Value: "Faible"},
-{Name: "Moyen", Value: "Moyen"}, {Name: "Élevé", Value: "Élevé"},
-}
+	return []discord.ApplicationCommandOptionChoiceString{
+		{Name: "Négatif", Value: "Négatif"}, {Name: "Faible", Value: "Faible"},
+		{Name: "Moyen", Value: "Moyen"}, {Name: "Élevé", Value: "Élevé"},
+	}
 }
 
 func drugsChoices() []discord.ApplicationCommandOptionChoiceString {
-return []discord.ApplicationCommandOptionChoiceString{
-{Name: "Négatif", Value: "Négatif"}, {Name: "Positif", Value: "Positif"},
-}
+	return []discord.ApplicationCommandOptionChoiceString{
+		{Name: "Négatif", Value: "Négatif"}, {Name: "Positif", Value: "Positif"},
+	}
 }
 
 func diseasesChoices() []discord.ApplicationCommandOptionChoiceString {
-return []discord.ApplicationCommandOptionChoiceString{
-{Name: "Négatif", Value: "Négatif"},
-}
+	return []discord.ApplicationCommandOptionChoiceString{
+		{Name: "Négatif", Value: "Négatif"},
+	}
 }
 
 func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
-data := e.SlashCommandInteractionData()
-if data.SubCommandName == nil {
-return
-}
-subName := *data.SubCommandName
+	data := e.SlashCommandInteractionData()
+	if data.SubCommandName == nil {
+		return
+	}
+	subName := *data.SubCommandName
 
-if err := e.DeferCreateMessage(true); err != nil {
-logger.Error("Error deferring", "error", err)
-return
-}
+	if err := e.DeferCreateMessage(true); err != nil {
+		logger.Error("Error deferring", "error", err)
+		return
+	}
 
-patientName := data.String("nom_prenom")
+	patientName := data.String("nom_prenom")
 
-analyseType := subName
-if subName == "drugs" {
-if depistage, ok := data.OptString("depistage"); ok {
-analyseType = depistage
-}
-}
+	analyseType := subName
+	if subName == "drugs" {
+		if depistage, ok := data.OptString("depistage"); ok {
+			analyseType = depistage
+		}
+	}
 
-analyseTime := defaultTime(subName)
-if timeStr, ok := data.OptString("time"); ok {
-if t, err := strconv.Atoi(timeStr); err == nil && t > 0 && t < 999 {
-analyseTime = t
-}
-}
+	analyseTime := defaultTime(subName)
+	if timeStr, ok := data.OptString("time"); ok {
+		if t, err := strconv.Atoi(timeStr); err == nil && t > 0 && t < 999 {
+			analyseTime = t
+		}
+	}
 
-var result string
-if res, ok := data.OptString("resultat"); ok {
-result = res
-} else {
-result = randomResult(subName)
-}
+	var result string
+	if res, ok := data.OptString("resultat"); ok {
+		result = res
+	} else {
+		result = randomResult(subName)
+	}
 
-member := e.Member()
-if member == nil {
-return
-}
+	member := e.Member()
+	if member == nil {
+		return
+	}
 
-channelID := e.Channel().ID()
-entry := &LaboEntry{
-ChannelID: channelID,
-UserID:    member.User.ID,
-StartTime: time.Now(),
-Name:      patientName,
-Type:      analyseType,
-Result:    result,
-Time:      analyseTime,
-}
+	channelID := e.Channel().ID()
+	entry := &LaboEntry{
+		ChannelID: channelID,
+		UserID:    member.User.ID,
+		StartTime: time.Now(),
+		Name:      patientName,
+		Type:      analyseType,
+		Result:    result,
+		Time:      analyseTime,
+	}
 
-waitEmbed := BuildLaboWaitingEmbed(entry)
+	waitEmbed := BuildLaboWaitingEmbed(entry)
 
-msg, err := e.Client().Rest.CreateMessage(channelID, discord.MessageCreate{
-Embeds: []discord.Embed{waitEmbed},
-Components: []discord.LayoutComponent{
-discord.ActionRowComponent{Components: []discord.InteractiveComponent{
-discord.ButtonComponent{Label: "Annuler", Style: discord.ButtonStyleDanger, CustomID: "laboCancelButton"},
-}},
-},
-})
-if err != nil {
-logger.Error("Error sending labo message", "error", err)
-if _, err2 := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
-Content: "Erreur lors de l'envoi du message d'analyse.",
-Flags:   discord.MessageFlagEphemeral,
-}); err2 != nil {
-logger.Error("Error creating followup", "error", err2)
-}
-return
-}
+	msg, err := e.Client().Rest.CreateMessage(channelID, discord.MessageCreate{
+		Embeds: []discord.Embed{waitEmbed},
+		Components: []discord.LayoutComponent{
+			discord.ActionRowComponent{Components: []discord.InteractiveComponent{
+				discord.ButtonComponent{Label: "Annuler", Style: discord.ButtonStyleDanger, CustomID: "laboCancelButton"},
+			}},
+		},
+	})
+	if err != nil {
+		logger.Error("Error sending labo message", "error", err)
+		if _, err2 := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
+			Content: "Erreur lors de l'envoi du message d'analyse.",
+			Flags:   discord.MessageFlagEphemeral,
+		}); err2 != nil {
+			logger.Error("Error creating followup", "error", err2)
+		}
+		return
+	}
 
-entry.MessageID = msg.ID
-Queue.Add(entry)
+	entry.MessageID = msg.ID
+	Queue.Add(entry)
 
-if _, err := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
-Content: fmt.Sprintf("Analyse lancée. Résultat dans %d minute(s).", analyseTime),
-Flags:   discord.MessageFlagEphemeral,
-}); err != nil {
-logger.Error("Error creating followup", "error", err)
-}
+	if _, err := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
+		Content: fmt.Sprintf("Analyse lancée. Résultat dans %d minute(s).", analyseTime),
+		Flags:   discord.MessageFlagEphemeral,
+	}); err != nil {
+		logger.Error("Error creating followup", "error", err)
+	}
 }
 
 func defaultTime(subCmd string) int {
-switch subCmd {
-case "bloodgroup":
-return 5
-case "alcohole":
-return 3
-case "drugs":
-return 5
-case "diseases":
-return 10
-default:
-return 5
-}
+	switch subCmd {
+	case "bloodgroup":
+		return 5
+	case "alcohole":
+		return 3
+	case "drugs":
+		return 5
+	case "diseases":
+		return 10
+	default:
+		return 5
+	}
 }
 
 func randomResult(subCmd string) string {
-type weighted struct {
-value  string
-weight int
-}
+	type weighted struct {
+		value  string
+		weight int
+	}
 
-var pool []weighted
+	var pool []weighted
 
-switch subCmd {
-case "bloodgroup":
-pool = []weighted{
-{"O+", 34}, {"A+", 28}, {"B+", 20}, {"AB+", 2},
-{"O-", 7}, {"A-", 6}, {"B-", 2}, {"AB-", 1},
-}
-case "alcohole":
-pool = []weighted{
-{"Négatif", 90}, {"Faible", 7}, {"Moyen", 2}, {"Élevé", 1},
-}
-case "drugs":
-pool = []weighted{
-{"Négatif", 90}, {"Positif", 10},
-}
-case "diseases":
-return "Négatif"
-default:
-return "Négatif"
-}
+	switch subCmd {
+	case "bloodgroup":
+		pool = []weighted{
+			{"O+", 34}, {"A+", 28}, {"B+", 20}, {"AB+", 2},
+			{"O-", 7}, {"A-", 6}, {"B-", 2}, {"AB-", 1},
+		}
+	case "alcohole":
+		pool = []weighted{
+			{"Négatif", 90}, {"Faible", 7}, {"Moyen", 2}, {"Élevé", 1},
+		}
+	case "drugs":
+		pool = []weighted{
+			{"Négatif", 90}, {"Positif", 10},
+		}
+	case "diseases":
+		return "Négatif"
+	default:
+		return "Négatif"
+	}
 
-total := 0
-for _, w := range pool {
-total += w.weight
-}
+	total := 0
+	for _, w := range pool {
+		total += w.weight
+	}
 
-r := rand.Intn(total)
-cumulative := 0
-for _, w := range pool {
-cumulative += w.weight
-if r < cumulative {
-return w.value
-}
-}
+	r := rand.Intn(total)
+	cumulative := 0
+	for _, w := range pool {
+		cumulative += w.weight
+		if r < cumulative {
+			return w.value
+		}
+	}
 
-return pool[len(pool)-1].value
+	return pool[len(pool)-1].value
 }

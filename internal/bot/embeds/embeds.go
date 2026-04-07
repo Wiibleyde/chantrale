@@ -1,25 +1,25 @@
 package embeds
 
 import (
-"time"
+	"time"
 
-"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/discord"
 )
 
 var avatarURL string
 
 func Init(url string) {
-avatarURL = url
+	avatarURL = url
 }
 
 func BaseEmbed() discord.Embed {
-t := time.Now()
-return discord.Embed{
-Color:     0xFFFFFF,
-Timestamp: &t,
-Footer: &discord.EmbedFooter{
-Text:    "Chantrale – LSMS",
-IconURL: avatarURL,
-},
-}
+	t := time.Now()
+	return discord.Embed{
+		Color:     0xFFFFFF,
+		Timestamp: &t,
+		Footer: &discord.EmbedFooter{
+			Text:    "Chantrale – LSMS",
+			IconURL: avatarURL,
+		},
+	}
 }
