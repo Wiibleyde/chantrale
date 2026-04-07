@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"math"
 	"os"
+	"strings"
 
 	"LsmsBot/internal/database/models"
 
@@ -38,6 +39,49 @@ var BedConfigs = []BedConfig{
 	{Letter: "D", MinX: 502, MinY: 173, MaxX: 540, MaxY: 243},
 	{Letter: "E", MinX: 436, MinY: 173, MaxX: 474, MaxY: 243},
 	{Letter: "F", MinX: 373, MinY: 173, MaxX: 411, MaxY: 243},
+}
+
+// truncateLines wraps text into word-wrapped lines at maxWidth, keeps at most
+// maxLines lines, and appends "..." to the last kept line if text was cut off.
+func truncateLines(dc *gg.Context, text string, maxWidth float64, maxLines int) string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return text
+	}
+
+	var lines []string
+	current := words[0]
+	for _, w := range words[1:] {
+		candidate := current + " " + w
+		cw, _ := dc.MeasureString(candidate)
+		if cw > maxWidth {
+			lines = append(lines, current)
+			current = w
+		} else {
+			current = candidate
+		}
+	}
+	lines = append(lines, current)
+
+	if len(lines) <= maxLines {
+		return strings.Join(lines, "\n")
+	}
+
+	// Need to truncate — fit "..." into the last allowed line
+	ellipsis := "..."
+	last := lines[maxLines-1]
+	for last != "" {
+		candidate := last + ellipsis
+		cw, _ := dc.MeasureString(candidate)
+		if cw <= maxWidth {
+			lines[maxLines-1] = candidate
+			break
+		}
+		// Trim one character from the end
+		runes := []rune(last)
+		last = strings.TrimRight(string(runes[:len(runes)-1]), " ")
+	}
+	return strings.Join(lines[:maxLines], "\n")
 }
 
 func assignmentMap(assignments []models.BedAssignment) map[string]models.BedAssignment {
@@ -105,15 +149,17 @@ func GenerateBedImage(assignments []models.BedAssignment) ([]byte, error) {
 		dc.Push()
 		dc.RotateAbout(textRotation, cx, cy)
 
+		displayName := truncateLines(dc, assignment.Name, bh-8, 3)
+
 		// Black stroke/border (4 offsets)
 		dc.SetColor(color.Black)
 		for _, off := range [][2]float64{{-strokeOffset, 0}, {strokeOffset, 0}, {0, -strokeOffset}, {0, strokeOffset}} {
-			dc.DrawStringWrapped(assignment.Name, cx+off[0], cy+off[1], 0.5, 0.5, bh-8, 1.2, gg.AlignCenter)
+			dc.DrawStringWrapped(displayName, cx+off[0], cy+off[1], 0.5, 0.5, bh-8, 1.2, gg.AlignCenter)
 		}
 
 		// White text on top
 		dc.SetColor(color.White)
-		dc.DrawStringWrapped(assignment.Name, cx, cy, 0.5, 0.5, bh-8, 1.2, gg.AlignCenter)
+		dc.DrawStringWrapped(displayName, cx, cy, 0.5, 0.5, bh-8, 1.2, gg.AlignCenter)
 
 		dc.Pop()
 	}
