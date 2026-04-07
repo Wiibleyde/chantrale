@@ -1,128 +1,162 @@
 package duty
 
 import (
-	"LsmsBot/internal/database"
-	"LsmsBot/internal/database/models"
-	"LsmsBot/internal/logger"
+"LsmsBot/internal/database"
+"LsmsBot/internal/database/models"
+"LsmsBot/internal/logger"
 
-	"github.com/bwmarrin/discordgo"
+"github.com/disgoorg/disgo/discord"
+"github.com/disgoorg/disgo/events"
+"github.com/disgoorg/snowflake/v2"
 )
 
-func HandleDutyButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	handleRoleToggle(s, i, "duty")
+func HandleDutyButton(e *events.ComponentInteractionCreate) {
+handleRoleToggle(e, "duty")
 }
 
-func HandleOnCallButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	handleRoleToggle(s, i, "oncall")
+func HandleOnCallButton(e *events.ComponentInteractionCreate) {
+handleRoleToggle(e, "oncall")
 }
 
-func HandleOffRadioButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	handleRoleToggle(s, i, "offradio")
+func HandleOffRadioButton(e *events.ComponentInteractionCreate) {
+handleRoleToggle(e, "offradio")
 }
 
-func handleRoleToggle(s *discordgo.Session, i *discordgo.InteractionCreate, roleType string) {
-	var dm models.DutyManager
-	if err := database.DB.Where("guild_id = ? AND message_id = ?", i.GuildID, i.Message.ID).First(&dm).Error; err != nil {
-		respondEphemeral(s, i, "Gestionnaire de service introuvable.")
-		return
-	}
+func handleRoleToggle(e *events.ComponentInteractionCreate, roleType string) {
+guildID := *e.GuildID()
+msgID := e.Message.ID.String()
 
-	var roleID *string
-	var oppositeRoleID *string
-	switch roleType {
-	case "duty":
-		roleID = dm.DutyRoleID
-		oppositeRoleID = dm.OnCallRoleID
-	case "oncall":
-		roleID = dm.OnCallRoleID
-		oppositeRoleID = dm.DutyRoleID
-	case "offradio":
-		roleID = dm.OffRadioRoleID
-	}
+var dm models.DutyManager
+if err := database.DB.Where("guild_id = ? AND message_id = ?", guildID.String(), msgID).First(&dm).Error; err != nil {
+respondEphemeral(e, "Gestionnaire de service introuvable.")
+return
+}
 
-	if roleID == nil {
-		respondEphemeral(s, i, "Rôle non configuré.")
-		return
-	}
+var roleID *string
+var oppositeRoleID *string
+switch roleType {
+case "duty":
+roleID = dm.DutyRoleID
+oppositeRoleID = dm.OnCallRoleID
+case "oncall":
+roleID = dm.OnCallRoleID
+oppositeRoleID = dm.DutyRoleID
+case "offradio":
+roleID = dm.OffRadioRoleID
+}
 
-	userID := i.Member.User.ID
-	hasRole := false
-	hasOpposite := false
-	for _, r := range i.Member.Roles {
-		if r == *roleID {
-			hasRole = true
-		}
-		if oppositeRoleID != nil && r == *oppositeRoleID {
-			hasOpposite = true
-		}
-	}
+if roleID == nil {
+respondEphemeral(e, "Rôle non configuré.")
+return
+}
 
-	var msgContent string
-	if hasRole {
-		if err := s.GuildMemberRoleRemove(i.GuildID, userID, *roleID); err != nil {
-			logger.Error("Error removing role", "error", err)
-			respondEphemeral(s, i, "Erreur lors de la modification du rôle.")
-			return
-		}
-		switch roleType {
-		case "duty":
-			msgContent = "Vous avez quitté le service."
-		case "oncall":
-			msgContent = "Vous avez quitté le semi service."
-		case "offradio":
-			msgContent = "Vous avez quitté le off radio."
-		}
-	} else {
-		// Remove the opposite role before adding this one (duty <-> oncall swap)
-		if hasOpposite && oppositeRoleID != nil {
-			if err := s.GuildMemberRoleRemove(i.GuildID, userID, *oppositeRoleID); err != nil {
-				logger.Error("Error removing opposite role", "error", err)
-				respondEphemeral(s, i, "Erreur lors de la modification du rôle.")
-				return
-			}
-		}
-		if err := s.GuildMemberRoleAdd(i.GuildID, userID, *roleID); err != nil {
-			logger.Error("Error adding role", "error", err)
-			respondEphemeral(s, i, "Erreur lors de la modification du rôle.")
-			return
-		}
-		switch roleType {
-		case "duty":
-			msgContent = "Vous avez pris le service."
-		case "oncall":
-			msgContent = "Vous avez pris le semi service."
-		case "offradio":
-			msgContent = "Vous êtes passé off radio."
-		}
-	}
+member := e.Member()
+if member == nil {
+respondEphemeral(e, "Erreur: membre introuvable.")
+return
+}
+userID := member.User.ID
 
-	members, err := s.GuildMembers(i.GuildID, "", 1000)
-	if err != nil {
-		logger.Error("Error fetching members", "error", err)
-	}
+roleSnowflake, err := snowflake.Parse(*roleID)
+if err != nil {
+respondEphemeral(e, "Erreur: rôle invalide.")
+return
+}
 
-	var onDuty, onCall, offRadio []string
-	if dm.DutyRoleID != nil {
-		onDuty = membersWithRole(members, *dm.DutyRoleID)
-	}
-	if dm.OnCallRoleID != nil {
-		onCall = membersWithRole(members, *dm.OnCallRoleID)
-	}
-	if dm.OffRadioRoleID != nil {
-		offRadio = membersWithRole(members, *dm.OffRadioRoleID)
-	}
+hasRole := false
+hasOpposite := false
+for _, r := range member.RoleIDs {
+if r == roleSnowflake {
+hasRole = true
+}
+if oppositeRoleID != nil {
+oppSnowflake, err := snowflake.Parse(*oppositeRoleID)
+if err == nil && r == oppSnowflake {
+hasOpposite = true
+}
+}
+}
 
-	embed, row := BuildDutyEmbed(onDuty, onCall, offRadio)
+client := e.Client()
+var msgContent string
+if hasRole {
+if err := client.Rest.RemoveMemberRole(guildID, userID, roleSnowflake); err != nil {
+logger.Error("Error removing role", "error", err)
+respondEphemeral(e, "Erreur lors de la modification du rôle.")
+return
+}
+switch roleType {
+case "duty":
+msgContent = "Vous avez quitté le service."
+case "oncall":
+msgContent = "Vous avez quitté le semi service."
+case "offradio":
+msgContent = "Vous avez quitté le off radio."
+}
+} else {
+if hasOpposite && oppositeRoleID != nil {
+oppSnowflake, err := snowflake.Parse(*oppositeRoleID)
+if err == nil {
+if err := client.Rest.RemoveMemberRole(guildID, userID, oppSnowflake); err != nil {
+logger.Error("Error removing opposite role", "error", err)
+respondEphemeral(e, "Erreur lors de la modification du rôle.")
+return
+}
+}
+}
+if err := client.Rest.AddMemberRole(guildID, userID, roleSnowflake); err != nil {
+logger.Error("Error adding role", "error", err)
+respondEphemeral(e, "Erreur lors de la modification du rôle.")
+return
+}
+switch roleType {
+case "duty":
+msgContent = "Vous avez pris le service."
+case "oncall":
+msgContent = "Vous avez pris le semi service."
+case "offradio":
+msgContent = "Vous êtes passé off radio."
+}
+}
 
-	components := []discordgo.MessageComponent{row}
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:         i.Message.ID,
-		Channel:    dm.ChannelID,
-		Embeds:     &[]*discordgo.MessageEmbed{embed},
-		Components: &components,
-	}); err != nil {
-		logger.Error("Error editing duty message", "error", err)
-	}
+members, err := client.Rest.GetMembers(guildID, 1000, 0)
+if err != nil {
+logger.Error("Error fetching members", "error", err)
+}
 
-	respondEphemeral(s, i, msgContent)
+var onDuty, onCall, offRadio []string
+if dm.DutyRoleID != nil {
+if rid, err := snowflake.Parse(*dm.DutyRoleID); err == nil {
+onDuty = membersWithRole(members, rid)
+}
+}
+if dm.OnCallRoleID != nil {
+if rid, err := snowflake.Parse(*dm.OnCallRoleID); err == nil {
+onCall = membersWithRole(members, rid)
+}
+}
+if dm.OffRadioRoleID != nil {
+if rid, err := snowflake.Parse(*dm.OffRadioRoleID); err == nil {
+offRadio = membersWithRole(members, rid)
+}
+}
+
+embed, row := BuildDutyEmbed(onDuty, onCall, offRadio)
+
+chanID, err := snowflake.Parse(dm.ChannelID)
+if err == nil {
+msgSnowflake, err2 := snowflake.Parse(*dm.MessageID)
+if err2 == nil {
+embeds := []discord.Embed{embed}
+components := []discord.LayoutComponent{row}
+if _, err3 := client.Rest.UpdateMessage(chanID, msgSnowflake, discord.MessageUpdate{
+Embeds:     &embeds,
+Components: &components,
+}); err3 != nil {
+logger.Error("Error editing duty message", "error", err3)
+}
+}
+}
+
+respondEphemeral(e, msgContent)
 }

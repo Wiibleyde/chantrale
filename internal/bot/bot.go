@@ -1,84 +1,86 @@
 package bot
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
+"context"
+"os"
+"os/signal"
+"syscall"
 
-	"LsmsBot/internal/bot/embeds"
-	"LsmsBot/internal/bot/features/bed"
-	"LsmsBot/internal/bot/features/doctor"
-	"LsmsBot/internal/bot/features/duty"
-	"LsmsBot/internal/bot/features/labo"
-	"LsmsBot/internal/bot/features/radio"
-	"LsmsBot/internal/bot/router"
-	"LsmsBot/internal/config"
-	"LsmsBot/internal/logger"
+"LsmsBot/internal/bot/embeds"
+"LsmsBot/internal/bot/features/bed"
+"LsmsBot/internal/bot/features/doctor"
+"LsmsBot/internal/bot/features/duty"
+"LsmsBot/internal/bot/features/labo"
+"LsmsBot/internal/bot/features/radio"
+"LsmsBot/internal/bot/router"
+"LsmsBot/internal/config"
+"LsmsBot/internal/logger"
 
-	"github.com/bwmarrin/discordgo"
+"github.com/disgoorg/disgo"
+"github.com/disgoorg/disgo/bot"
+"github.com/disgoorg/disgo/discord"
+"github.com/disgoorg/disgo/events"
+"github.com/disgoorg/disgo/gateway"
+"github.com/disgoorg/snowflake/v2"
 )
 
 func Run() {
-	cfg := config.Load()
+cfg := config.Load()
 
-	s, err := discordgo.New("Bot " + cfg.DiscordToken)
-	if err != nil {
-		logger.Fatal("Error creating Discord session", "error", err)
-	}
+client, err := disgo.New(cfg.DiscordToken,
+bot.WithGatewayConfigOpts(
+gateway.WithIntents(gateway.IntentGuilds, gateway.IntentGuildMembers),
+),
+)
+if err != nil {
+logger.Fatal("Error creating Discord client", "error", err)
+}
 
-	s.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers
+labo.Queue.SetClient(client)
 
-	labo.Queue.SetSession(s)
+client.AddEventListeners(bot.NewListenerFunc(duty.HandleGuildMemberUpdate))
 
-	s.AddHandler(func(s *discordgo.Session, e *discordgo.GuildMemberUpdate) {
-		duty.HandleGuildMemberUpdate(s, e)
-	})
+r := router.New()
+duty.Register(r)
+radio.Register(r)
+doctor.Register(r)
+labo.Register(r)
+bed.Register(r)
+r.Attach(client)
 
-	// --- Register features ---
-	// To add a new feature: import its package and call feature.Register(r) here.
-	r := router.New()
-	duty.Register(r)
-	radio.Register(r)
-	doctor.Register(r)
-	labo.Register(r)
-	bed.Register(r)
-	r.Attach(s)
+allCommands := []discord.ApplicationCommandCreate{}
+allCommands = append(allCommands, duty.Commands...)
+allCommands = append(allCommands, radio.Commands...)
+allCommands = append(allCommands, doctor.Commands...)
+allCommands = append(allCommands, labo.Commands...)
+allCommands = append(allCommands, bed.Commands...)
 
-	// Collect all slash commands from each feature
-	allCommands := []*discordgo.ApplicationCommand{}
-	allCommands = append(allCommands, duty.Commands...)
-	allCommands = append(allCommands, radio.Commands...)
-	allCommands = append(allCommands, doctor.Commands...)
-	allCommands = append(allCommands, labo.Commands...)
-	allCommands = append(allCommands, bed.Commands...)
+client.AddEventListeners(bot.NewListenerFunc(func(e *events.Ready) {
+logger.Info("Logged in", "user", e.User.Username)
+embeds.Init(e.User.EffectiveAvatarURL())
+duty.StartScheduler(client)
+for _, guildID := range cfg.GuildIDs {
+guildSnowflake := snowflake.MustParse(guildID)
+if _, err := e.Client().Rest.SetGuildCommands(e.Application.ID, guildSnowflake, allCommands); err != nil {
+logger.Error("Cannot set commands", "guild", guildID, "error", err)
+}
+}
+logger.Info("Commands registered")
+}))
 
-	s.AddHandler(func(s *discordgo.Session, ready *discordgo.Ready) {
-		logger.Info("Logged in", "user", s.State.User.Username+"#"+s.State.User.Discriminator)
-		for _, guildID := range cfg.GuildIDs {
-			for _, cmd := range allCommands {
-				if _, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, cmd); err != nil {
-					logger.Error("Cannot create command", "command", cmd.Name, "guild", guildID, "error", err)
-				}
-			}
-			logger.Info("Commands registered", "guild", guildID)
-		}
-	})
+ctx := context.Background()
+if err := client.OpenGateway(ctx); err != nil {
+logger.Fatal("Error opening connection", "error", err)
+}
+defer client.Close(ctx)
 
-	if err := s.Open(); err != nil {
-		logger.Fatal("Error opening connection", "error", err)
-	}
-	defer s.Close()
+logger.Info("Bot is running. Press CTRL-C to exit.")
+sc := make(chan os.Signal, 1)
+signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+<-sc
 
-	embeds.Init(s)
-	duty.StartScheduler(s)
+logger.Info("Sending duty summary before shutdown...")
+duty.SendShutdownSummary(client)
 
-	logger.Info("Bot is running. Press CTRL-C to exit.")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	<-sc
-
-	logger.Info("Sending duty summary before shutdown...")
-	duty.SendShutdownSummary(s)
-
-	logger.Info("Shutting down...")
+logger.Info("Shutting down...")
 }

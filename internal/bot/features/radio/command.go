@@ -1,48 +1,50 @@
 package radio
 
 import (
-	"LsmsBot/internal/logger"
+"LsmsBot/internal/logger"
 
-	"github.com/bwmarrin/discordgo"
+"github.com/disgoorg/disgo/discord"
+"github.com/disgoorg/disgo/events"
+"github.com/disgoorg/disgo/rest"
 )
 
-var Commands = []*discordgo.ApplicationCommand{
-	{
-		Name:        "radio",
-		Description: "Créer un gestionnaire de radios",
-	},
+var Commands = []discord.ApplicationCommandCreate{
+discord.SlashCommandCreate{
+Name:        "radio",
+Description: "Créer un gestionnaire de radios",
+},
 }
 
-func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	perms, err := s.UserChannelPermissions(i.Member.User.ID, i.ChannelID)
-	if err != nil || perms&discordgo.PermissionManageChannels == 0 {
-		respondEphemeral(s, i, "Vous n'avez pas la permission de gérer les canaux.")
-		return
-	}
-
-	embed := BuildRadioEmbed(nil)
-	components := BuildRadioComponents(nil)
-
-	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Embeds:     []*discordgo.MessageEmbed{embed},
-		Components: components,
-	}); err != nil {
-		logger.Error("Error sending radio message", "error", err)
-		respondEphemeral(s, i, "Erreur lors de l'envoi du message.")
-		return
-	}
-
-	respondEphemeral(s, i, "Gestionnaire de radios créé avec succès.")
+func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
+member := e.Member()
+if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
+respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
+return
 }
 
-func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: content,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	}); err != nil {
-		logger.Error("Error responding to interaction", "error", err)
-	}
+embed := BuildRadioEmbed(nil)
+components := BuildRadioComponents(nil)
+
+channelID := e.Channel().ID()
+if _, err := e.Client().Rest.CreateMessage(channelID, discord.MessageCreate{
+Embeds:     []discord.Embed{embed},
+Components: components,
+}); err != nil {
+logger.Error("Error sending radio message", "error", err)
+respondEphemeral(e, "Erreur lors de l'envoi du message.")
+return
+}
+
+respondEphemeral(e, "Gestionnaire de radios créé avec succès.")
+}
+
+func respondEphemeral(r interface {
+CreateMessage(discord.MessageCreate, ...rest.RequestOpt) error
+}, content string) {
+if err := r.CreateMessage(discord.MessageCreate{
+Content: content,
+Flags:   discord.MessageFlagEphemeral,
+}); err != nil {
+logger.Error("Error responding to interaction", "error", err)
+}
 }
