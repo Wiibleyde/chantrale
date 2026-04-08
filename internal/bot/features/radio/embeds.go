@@ -5,7 +5,8 @@ import (
 
 	"LsmsBot/internal/bot/embeds"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/omit"
 )
 
 type RadioEntry struct {
@@ -13,7 +14,7 @@ type RadioEntry struct {
 	Frequency string
 }
 
-func BuildRadioEmbed(radios []RadioEntry) *discordgo.MessageEmbed {
+func BuildRadioEmbed(radios []RadioEntry) discord.Embed {
 	embed := embeds.BaseEmbed()
 	embed.Title = "Gestionnaire de radios"
 	embed.Color = 0x0099FF
@@ -23,10 +24,10 @@ func BuildRadioEmbed(radios []RadioEntry) *discordgo.MessageEmbed {
 	} else {
 		embed.Description = "Utilisez les boutons ci-dessous pour gérer les radios disponibles."
 		for _, r := range radios {
-			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			embed.Fields = append(embed.Fields, discord.EmbedField{
 				Name:   r.Name,
 				Value:  r.Frequency,
-				Inline: true,
+				Inline: omit.Ptr(true),
 			})
 		}
 	}
@@ -34,8 +35,8 @@ func BuildRadioEmbed(radios []RadioEntry) *discordgo.MessageEmbed {
 	return embed
 }
 
-func BuildRadioComponents(radios []RadioEntry) []discordgo.MessageComponent {
-	var components []discordgo.MessageComponent
+func BuildRadioComponents(radios []RadioEntry) []discord.LayoutComponent {
+	var components []discord.LayoutComponent
 
 	maxRadios := 20
 	if len(radios) < maxRadios {
@@ -47,30 +48,22 @@ func BuildRadioComponents(radios []RadioEntry) []discordgo.MessageComponent {
 		if end > maxRadios {
 			end = maxRadios
 		}
-		row := discordgo.ActionsRow{}
+		var btns []discord.InteractiveComponent
 		for _, r := range radios[i:end] {
 			encoded := base64.RawURLEncoding.EncodeToString([]byte(r.Name))
-			row.Components = append(row.Components, discordgo.Button{
+			btns = append(btns, discord.ButtonComponent{
 				Label:    "Modifier la radio " + r.Name,
-				Style:    discordgo.SecondaryButton,
+				Style:    discord.ButtonStyleSecondary,
 				CustomID: "lsmsRadioEdit--" + encoded,
 			})
 		}
-		components = append(components, row)
+		components = append(components, discord.ActionRowComponent{Components: btns})
 	}
 
-	lastRow := discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.Button{
-				Label:    "+",
-				Style:    discordgo.SuccessButton,
-				CustomID: "lsmsRadioAdd",
-			},
-			discordgo.Button{
-				Label:    "-",
-				Style:    discordgo.DangerButton,
-				CustomID: "lsmsRadioRemove",
-			},
+	lastRow := discord.ActionRowComponent{
+		Components: []discord.InteractiveComponent{
+			discord.ButtonComponent{Label: "+", Style: discord.ButtonStyleSuccess, CustomID: "lsmsRadioAdd"},
+			discord.ButtonComponent{Label: "-", Style: discord.ButtonStyleDanger, CustomID: "lsmsRadioRemove"},
 		},
 	}
 	components = append(components, lastRow)
@@ -78,7 +71,7 @@ func BuildRadioComponents(radios []RadioEntry) []discordgo.MessageComponent {
 	return components
 }
 
-func ParseRadiosFromEmbed(embeds []*discordgo.MessageEmbed) []RadioEntry {
+func ParseRadiosFromEmbed(embeds []discord.Embed) []RadioEntry {
 	var radios []RadioEntry
 	if len(embeds) == 0 {
 		return radios

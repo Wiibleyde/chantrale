@@ -8,34 +8,31 @@ import (
 
 	"LsmsBot/internal/logger"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
 )
 
-var Commands = []*discordgo.ApplicationCommand{
-	{
+var Commands = []discord.ApplicationCommandCreate{
+	discord.SlashCommandCreate{
 		Name:        "labo",
 		Description: "Effectuer une analyse de laboratoire",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionSubCommand{
 				Name:        "bloodgroup",
 				Description: "Analyse de groupe sanguin",
 				Options:     commonLaboOptions(bloodgroupChoices()),
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			discord.ApplicationCommandOptionSubCommand{
 				Name:        "alcohole",
 				Description: "Analyse de taux d'alcoolémie",
 				Options:     commonLaboOptions(alcoholeChoices()),
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			discord.ApplicationCommandOptionSubCommand{
 				Name:        "drugs",
 				Description: "Analyse de dépistage de drogues",
 				Options:     drugsOptions(),
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			discord.ApplicationCommandOptionSubCommand{
 				Name:        "diseases",
 				Description: "Analyse de maladies",
 				Options:     commonLaboOptions(diseasesChoices()),
@@ -44,44 +41,22 @@ var Commands = []*discordgo.ApplicationCommand{
 	},
 }
 
-func commonLaboOptions(resultChoices []*discordgo.ApplicationCommandOptionChoice) []*discordgo.ApplicationCommandOption {
-	return []*discordgo.ApplicationCommandOption{
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "nom_prenom",
-			Description: "Nom et prénom du patient",
-			Required:    true,
-		},
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "resultat",
-			Description: "Résultat de l'analyse (optionnel)",
-			Required:    false,
-			Choices:     resultChoices,
-		},
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "time",
-			Description: "Durée de l'analyse en minutes (optionnel, 1-3 chiffres)",
-			Required:    false,
-		},
+func commonLaboOptions(resultChoices []discord.ApplicationCommandOptionChoiceString) []discord.ApplicationCommandOption {
+	return []discord.ApplicationCommandOption{
+		discord.ApplicationCommandOptionString{Name: "nom_prenom", Description: "Nom et prénom du patient", Required: true},
+		discord.ApplicationCommandOptionString{Name: "resultat", Description: "Résultat de l'analyse (optionnel)", Required: false, Choices: resultChoices},
+		discord.ApplicationCommandOptionString{Name: "time", Description: "Durée de l'analyse en minutes (optionnel, 1-3 chiffres)", Required: false},
 	}
 }
 
-func drugsOptions() []*discordgo.ApplicationCommandOption {
-	return []*discordgo.ApplicationCommandOption{
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "nom_prenom",
-			Description: "Nom et prénom du patient",
-			Required:    true,
-		},
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
+func drugsOptions() []discord.ApplicationCommandOption {
+	return []discord.ApplicationCommandOption{
+		discord.ApplicationCommandOptionString{Name: "nom_prenom", Description: "Nom et prénom du patient", Required: true},
+		discord.ApplicationCommandOptionString{
 			Name:        "depistage",
 			Description: "Type de dépistage",
 			Required:    true,
-			Choices: []*discordgo.ApplicationCommandOptionChoice{
+			Choices: []discord.ApplicationCommandOptionChoiceString{
 				{Name: "Cannabis", Value: "Cannabis"},
 				{Name: "Cocaïne", Value: "Cocaïne"},
 				{Name: "Héroïne", Value: "Héroïne"},
@@ -90,104 +65,81 @@ func drugsOptions() []*discordgo.ApplicationCommandOption {
 				{Name: "Méthamphétamine", Value: "Méthamphétamine"},
 			},
 		},
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "resultat",
-			Description: "Résultat de l'analyse (optionnel)",
-			Required:    false,
-			Choices:     drugsChoices(),
-		},
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        "time",
-			Description: "Durée de l'analyse en minutes (optionnel, 1-3 chiffres)",
-			Required:    false,
-		},
+		discord.ApplicationCommandOptionString{Name: "resultat", Description: "Résultat de l'analyse (optionnel)", Required: false, Choices: drugsChoices()},
+		discord.ApplicationCommandOptionString{Name: "time", Description: "Durée de l'analyse en minutes (optionnel, 1-3 chiffres)", Required: false},
 	}
 }
 
-func bloodgroupChoices() []*discordgo.ApplicationCommandOptionChoice {
-	return []*discordgo.ApplicationCommandOptionChoice{
-		{Name: "O+", Value: "O+"},
-		{Name: "A+", Value: "A+"},
-		{Name: "B+", Value: "B+"},
-		{Name: "AB+", Value: "AB+"},
-		{Name: "O-", Value: "O-"},
-		{Name: "A-", Value: "A-"},
-		{Name: "B-", Value: "B-"},
-		{Name: "AB-", Value: "AB-"},
+func bloodgroupChoices() []discord.ApplicationCommandOptionChoiceString {
+	return []discord.ApplicationCommandOptionChoiceString{
+		{Name: "O+", Value: "O+"}, {Name: "A+", Value: "A+"}, {Name: "B+", Value: "B+"}, {Name: "AB+", Value: "AB+"},
+		{Name: "O-", Value: "O-"}, {Name: "A-", Value: "A-"}, {Name: "B-", Value: "B-"}, {Name: "AB-", Value: "AB-"},
 	}
 }
 
-func alcoholeChoices() []*discordgo.ApplicationCommandOptionChoice {
-	return []*discordgo.ApplicationCommandOptionChoice{
-		{Name: "Négatif", Value: "Négatif"},
-		{Name: "Faible", Value: "Faible"},
-		{Name: "Moyen", Value: "Moyen"},
-		{Name: "Élevé", Value: "Élevé"},
+func alcoholeChoices() []discord.ApplicationCommandOptionChoiceString {
+	return []discord.ApplicationCommandOptionChoiceString{
+		{Name: "Négatif", Value: "Négatif"}, {Name: "Faible", Value: "Faible"},
+		{Name: "Moyen", Value: "Moyen"}, {Name: "Élevé", Value: "Élevé"},
 	}
 }
 
-func drugsChoices() []*discordgo.ApplicationCommandOptionChoice {
-	return []*discordgo.ApplicationCommandOptionChoice{
-		{Name: "Négatif", Value: "Négatif"},
-		{Name: "Positif", Value: "Positif"},
+func drugsChoices() []discord.ApplicationCommandOptionChoiceString {
+	return []discord.ApplicationCommandOptionChoiceString{
+		{Name: "Négatif", Value: "Négatif"}, {Name: "Positif", Value: "Positif"},
 	}
 }
 
-func diseasesChoices() []*discordgo.ApplicationCommandOptionChoice {
-	return []*discordgo.ApplicationCommandOptionChoice{
+func diseasesChoices() []discord.ApplicationCommandOptionChoiceString {
+	return []discord.ApplicationCommandOptionChoiceString{
 		{Name: "Négatif", Value: "Négatif"},
 	}
 }
 
-func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	data := i.ApplicationCommandData()
-	if len(data.Options) == 0 {
+func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
+	data := e.SlashCommandInteractionData()
+	if data.SubCommandName == nil {
 		return
 	}
-	sub := data.Options[0]
+	subName := *data.SubCommandName
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	}); err != nil {
+	if err := e.DeferCreateMessage(true); err != nil {
 		logger.Error("Error deferring", "error", err)
 		return
 	}
 
-	opts := optionMap(sub.Options)
+	patientName := data.String("nom_prenom")
 
-	patientName := opts["nom_prenom"].StringValue()
-
-	analyseType := sub.Name
-	if sub.Name == "drugs" {
-		if depistage, ok := opts["depistage"]; ok {
-			analyseType = depistage.StringValue()
+	analyseType := subName
+	if subName == "drugs" {
+		if depistage, ok := data.OptString("depistage"); ok {
+			analyseType = depistage
 		}
 	}
 
-	analyseTime := defaultTime(sub.Name)
-	if timeOpt, ok := opts["time"]; ok {
-		if t, err := strconv.Atoi(timeOpt.StringValue()); err == nil {
-			if t > 0 && t < 999 {
-				analyseTime = t
-			}
+	analyseTime := defaultTime(subName)
+	if timeStr, ok := data.OptString("time"); ok {
+		if t, err := strconv.Atoi(timeStr); err == nil && t > 0 && t < 999 {
+			analyseTime = t
 		}
 	}
 
 	var result string
-	if resOpt, ok := opts["resultat"]; ok {
-		result = resOpt.StringValue()
+	if res, ok := data.OptString("resultat"); ok {
+		result = res
 	} else {
-		result = randomResult(sub.Name)
+		result = randomResult(subName)
 	}
 
+	member := e.Member()
+	if member == nil {
+		return
+	}
+
+	channelID := e.Channel().ID()
 	entry := &LaboEntry{
-		ChannelID: i.ChannelID,
-		UserID:    i.Member.User.ID,
+		ChannelID: channelID,
+		UserID:    member.User.ID,
 		StartTime: time.Now(),
 		Name:      patientName,
 		Type:      analyseType,
@@ -197,25 +149,19 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	waitEmbed := BuildLaboWaitingEmbed(entry)
 
-	msg, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Embeds: []*discordgo.MessageEmbed{waitEmbed},
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
-						Label:    "Annuler",
-						Style:    discordgo.DangerButton,
-						CustomID: "laboCancelButton",
-					},
-				},
-			},
+	msg, err := e.Client().Rest.CreateMessage(channelID, discord.MessageCreate{
+		Embeds: []discord.Embed{waitEmbed},
+		Components: []discord.LayoutComponent{
+			discord.ActionRowComponent{Components: []discord.InteractiveComponent{
+				discord.ButtonComponent{Label: "Annuler", Style: discord.ButtonStyleDanger, CustomID: "laboCancelButton"},
+			}},
 		},
 	})
 	if err != nil {
 		logger.Error("Error sending labo message", "error", err)
-		if _, err2 := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		if _, err2 := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
 			Content: "Erreur lors de l'envoi du message d'analyse.",
-			Flags:   discordgo.MessageFlagsEphemeral,
+			Flags:   discord.MessageFlagEphemeral,
 		}); err2 != nil {
 			logger.Error("Error creating followup", "error", err2)
 		}
@@ -225,9 +171,9 @@ func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	entry.MessageID = msg.ID
 	Queue.Add(entry)
 
-	if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	if _, err := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
 		Content: fmt.Sprintf("Analyse lancée. Résultat dans %d minute(s).", analyseTime),
-		Flags:   discordgo.MessageFlagsEphemeral,
+		Flags:   discord.MessageFlagEphemeral,
 	}); err != nil {
 		logger.Error("Error creating followup", "error", err)
 	}
@@ -291,12 +237,4 @@ func randomResult(subCmd string) string {
 	}
 
 	return pool[len(pool)-1].value
-}
-
-func optionMap(opts []*discordgo.ApplicationCommandInteractionDataOption) map[string]*discordgo.ApplicationCommandInteractionDataOption {
-	m := make(map[string]*discordgo.ApplicationCommandInteractionDataOption)
-	for _, opt := range opts {
-		m[opt.Name] = opt
-	}
-	return m
 }

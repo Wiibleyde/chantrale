@@ -6,109 +6,75 @@ import (
 
 	"LsmsBot/internal/logger"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/snowflake/v2"
 )
 
-func boolPtr(b bool) *bool { return &b }
+func HandleRadioAdd(e *events.ComponentInteractionCreate) {
+	channelID := e.Channel().ID().String()
+	messageID := e.Message.ID.String()
 
-func HandleRadioAdd(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	channelID := i.ChannelID
-	messageID := i.Message.ID
+	modal := discord.NewModalCreate("lsmsRadioAddModal--"+channelID+"--"+messageID, "Ajouter une radio").
+		AddLabel("Nom de la radio", discord.NewShortTextInput("name").WithRequired(true).WithPlaceholder("Ex: Radio LSMS")).
+		AddLabel("Fréquence", discord.NewShortTextInput("frequency").WithRequired(true).WithPlaceholder("Ex: 101.5"))
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseModal,
-		Data: &discordgo.InteractionResponseData{
-			CustomID: "lsmsRadioAddModal--" + channelID + "--" + messageID,
-			Title:    "Ajouter une radio",
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID:    "name",
-							Label:       "Nom de la radio",
-							Style:       discordgo.TextInputShort,
-							Required:    boolPtr(true),
-							Placeholder: "Ex: Radio LSMS",
-						},
-					},
-				},
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID:    "frequency",
-							Label:       "Fréquence",
-							Style:       discordgo.TextInputShort,
-							Required:    boolPtr(true),
-							Placeholder: "Ex: 101.5",
-						},
-					},
-				},
-			},
-		},
-	}); err != nil {
+	if err := e.Modal(modal); err != nil {
 		logger.Error("Error responding with modal", "error", err)
 	}
 }
 
-func HandleRadioRemove(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	channelID := i.ChannelID
-	messageID := i.Message.ID
+func HandleRadioRemove(e *events.ComponentInteractionCreate) {
+	channelID := e.Channel().ID().String()
+	messageID := e.Message.ID.String()
 
-	radios := ParseRadiosFromEmbed(i.Message.Embeds)
+	radios := ParseRadiosFromEmbed(e.Message.Embeds)
 	if len(radios) == 0 {
-		respondEphemeral(s, i, "Aucune radio à supprimer.")
+		respondEphemeral(e, "Aucune radio à supprimer.")
 		return
 	}
 
-	var options []discordgo.SelectMenuOption
+	var options []discord.StringSelectMenuOption
 	for _, r := range radios {
-		options = append(options, discordgo.SelectMenuOption{
-			Label: r.Name,
-			Value: r.Name,
-		})
+		options = append(options, discord.StringSelectMenuOption{Label: r.Name, Value: r.Name})
 	}
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.SelectMenu{
-							CustomID:    "lsmsRadioRemoveSelect--" + channelID + "--" + messageID,
-							Placeholder: "Sélectionner une radio à supprimer",
-							Options:     options,
-						},
-					},
+	if err := e.CreateMessage(discord.MessageCreate{
+		Flags: discord.MessageFlagEphemeral,
+		Components: []discord.LayoutComponent{
+			discord.ActionRowComponent{Components: []discord.InteractiveComponent{
+				discord.StringSelectMenuComponent{
+					CustomID:    "lsmsRadioRemoveSelect--" + channelID + "--" + messageID,
+					Placeholder: "Sélectionner une radio à supprimer",
+					Options:     options,
 				},
-			},
+			}},
 		},
 	}); err != nil {
 		logger.Error("Error responding with select menu", "error", err)
 	}
 }
 
-func HandleRadioEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	customID := i.MessageComponentData().CustomID
+func HandleRadioEdit(e *events.ComponentInteractionCreate) {
+	customID := e.Data.CustomID()
 	parts := strings.SplitN(customID, "--", 2)
 	if len(parts) < 2 {
-		respondEphemeral(s, i, "Erreur: identifiant invalide.")
+		respondEphemeral(e, "Erreur: identifiant invalide.")
 		return
 	}
 
 	encodedName := parts[1]
 	nameBytes, err := base64.RawURLEncoding.DecodeString(encodedName)
 	if err != nil {
-		respondEphemeral(s, i, "Erreur: nom de radio invalide.")
+		respondEphemeral(e, "Erreur: nom de radio invalide.")
 		return
 	}
 	radioName := string(nameBytes)
 
-	channelID := i.ChannelID
-	messageID := i.Message.ID
+	channelID := e.Channel().ID().String()
+	messageID := e.Message.ID.String()
 
-	radios := ParseRadiosFromEmbed(i.Message.Embeds)
+	radios := ParseRadiosFromEmbed(e.Message.Embeds)
 	currentFreq := ""
 	for _, r := range radios {
 		if r.Name == radioName {
@@ -119,63 +85,41 @@ func HandleRadioEdit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	encoded := base64.RawURLEncoding.EncodeToString([]byte(radioName))
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseModal,
-		Data: &discordgo.InteractionResponseData{
-			CustomID: "lsmsRadioEditModal--" + channelID + "--" + messageID + "--" + encoded,
-			Title:    "Modifier la radio " + radioName,
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID: "name",
-							Label:    "Nom de la radio",
-							Style:    discordgo.TextInputShort,
-							Required: boolPtr(true),
-							Value:    radioName,
-						},
-					},
-				},
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID: "frequency",
-							Label:    "Fréquence",
-							Style:    discordgo.TextInputShort,
-							Required: boolPtr(true),
-							Value:    currentFreq,
-						},
-					},
-				},
-			},
-		},
-	}); err != nil {
+	modal := discord.NewModalCreate("lsmsRadioEditModal--"+channelID+"--"+messageID+"--"+encoded, "Modifier la radio "+radioName).
+		AddLabel("Nom de la radio", discord.NewShortTextInput("name").WithRequired(true).WithValue(radioName)).
+		AddLabel("Fréquence", discord.NewShortTextInput("frequency").WithRequired(true).WithValue(currentFreq))
+
+	if err := e.Modal(modal); err != nil {
 		logger.Error("Error responding with modal", "error", err)
 	}
 }
 
-func HandleRadioRemoveSelect(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	customID := i.MessageComponentData().CustomID
+func HandleRadioRemoveSelect(e *events.ComponentInteractionCreate) {
+	customID := e.Data.CustomID()
 	parts := strings.SplitN(customID, "--", 3)
 	if len(parts) < 3 {
-		respondEphemeral(s, i, "Erreur: identifiant invalide.")
+		respondEphemeral(e, "Erreur: identifiant invalide.")
 		return
 	}
 
-	channelID := parts[1]
-	messageID := parts[2]
+	channelIDStr := parts[1]
+	messageIDStr := parts[2]
 
-	values := i.MessageComponentData().Values
+	selectData := e.StringSelectMenuInteractionData()
+	values := selectData.Values
 	if len(values) == 0 {
-		respondEphemeral(s, i, "Aucune radio sélectionnée.")
+		respondEphemeral(e, "Aucune radio sélectionnée.")
 		return
 	}
 	selectedName := values[0]
 
-	msg, err := s.ChannelMessage(channelID, messageID)
+	chanID := snowflake.MustParse(channelIDStr)
+	msgID := snowflake.MustParse(messageIDStr)
+
+	msg, err := e.Client().Rest.GetMessage(chanID, msgID)
 	if err != nil {
 		logger.Error("Error fetching message", "error", err)
-		respondEphemeral(s, i, "Erreur lors de la récupération du message.")
+		respondEphemeral(e, "Erreur lors de la récupération du message.")
 		return
 	}
 
@@ -189,17 +133,15 @@ func HandleRadioRemoveSelect(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	embed := BuildRadioEmbed(newRadios)
 	components := BuildRadioComponents(newRadios)
-
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:         messageID,
-		Channel:    channelID,
-		Embeds:     &[]*discordgo.MessageEmbed{embed},
+	embeds := []discord.Embed{embed}
+	if _, err := e.Client().Rest.UpdateMessage(chanID, msgID, discord.MessageUpdate{
+		Embeds:     &embeds,
 		Components: &components,
 	}); err != nil {
 		logger.Error("Error editing radio message", "error", err)
-		respondEphemeral(s, i, "Erreur lors de la modification du message.")
+		respondEphemeral(e, "Erreur lors de la modification du message.")
 		return
 	}
 
-	respondEphemeral(s, i, "Radio supprimée avec succès.")
+	respondEphemeral(e, "Radio supprimée avec succès.")
 }

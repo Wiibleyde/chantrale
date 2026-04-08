@@ -7,10 +7,11 @@ import (
 
 	"LsmsBot/internal/bot/embeds"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/omit"
 )
 
-func BuildDutyEmbed(onDuty, onCall, offRadio []string) (*discordgo.MessageEmbed, discordgo.ActionsRow) {
+func BuildDutyEmbed(onDuty, onCall, offRadio []string) (discord.Embed, discord.ActionRowComponent) {
 	embed := embeds.BaseEmbed()
 	embed.Title = "Gestionnaire de service"
 	embed.Color = 0x0099FF
@@ -19,29 +20,17 @@ func BuildDutyEmbed(onDuty, onCall, offRadio []string) (*discordgo.MessageEmbed,
 	onCallList := formatList(onCall, "Personne n'est en semi service :(")
 	offRadioList := formatList(offRadio, "Personne n'est off radio")
 
-	embed.Fields = []*discordgo.MessageEmbedField{
-		{Name: fmt.Sprintf("En service (%d) :", len(onDuty)), Value: dutyList, Inline: true},
-		{Name: fmt.Sprintf("En semi service (%d) :", len(onCall)), Value: onCallList, Inline: true},
-		{Name: fmt.Sprintf("Off radio (%d) :", len(offRadio)), Value: offRadioList, Inline: true},
+	embed.Fields = []discord.EmbedField{
+		{Name: fmt.Sprintf("En service (%d) :", len(onDuty)), Value: dutyList, Inline: omit.Ptr(true)},
+		{Name: fmt.Sprintf("En semi service (%d) :", len(onCall)), Value: onCallList, Inline: omit.Ptr(true)},
+		{Name: fmt.Sprintf("Off radio (%d) :", len(offRadio)), Value: offRadioList, Inline: omit.Ptr(true)},
 	}
 
-	row := discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.Button{
-				Label:    "Prendre/Quitter le service",
-				Style:    discordgo.PrimaryButton,
-				CustomID: "handleLsmsDuty",
-			},
-			discordgo.Button{
-				Label:    "Prendre/Quitter le semi service",
-				Style:    discordgo.SecondaryButton,
-				CustomID: "handleLsmsOnCall",
-			},
-			discordgo.Button{
-				Label:    "Off radio",
-				Style:    discordgo.DangerButton,
-				CustomID: "handleLsmsOffRadio",
-			},
+	row := discord.ActionRowComponent{
+		Components: []discord.InteractiveComponent{
+			discord.ButtonComponent{Label: "Prendre/Quitter le service", Style: discord.ButtonStylePrimary, CustomID: "handleLsmsDuty"},
+			discord.ButtonComponent{Label: "Prendre/Quitter le semi service", Style: discord.ButtonStyleSecondary, CustomID: "handleLsmsOnCall"},
+			discord.ButtonComponent{Label: "Off radio", Style: discord.ButtonStyleDanger, CustomID: "handleLsmsOffRadio"},
 		},
 	}
 
@@ -59,7 +48,7 @@ func formatList(ids []string, empty string) string {
 	return strings.Join(mentions, "\n")
 }
 
-func BuildDutyUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
+func BuildDutyUpdateEmbed(userID string, take bool) discord.Embed {
 	embed := embeds.BaseEmbed()
 	if take {
 		embed.Title = "Prise de service"
@@ -73,7 +62,7 @@ func BuildDutyUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
 	return embed
 }
 
-func BuildOnCallUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
+func BuildOnCallUpdateEmbed(userID string, take bool) discord.Embed {
 	embed := embeds.BaseEmbed()
 	if take {
 		embed.Title = "Début du semi service"
@@ -87,23 +76,20 @@ func BuildOnCallUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
 	return embed
 }
 
-func BuildSummaryEmbed(from, to time.Time, onDuty, onCall, offRadio []string) *discordgo.MessageEmbed {
+func BuildSummaryEmbed(from, to time.Time, onDuty, onCall, offRadio []string) discord.Embed {
 	embed := embeds.BaseEmbed()
 	embed.Title = "Récapitulatif du service"
 	embed.Color = 0x5865F2
-	embed.Description = fmt.Sprintf(
-		"Période du <t:%d:f> au <t:%d:f>",
-		from.Unix(), to.Unix(),
-	)
-	embed.Fields = []*discordgo.MessageEmbedField{
-		{Name: "Service", Value: formatList(onDuty, "Aucun :("), Inline: false},
-		{Name: "Semi service", Value: formatList(onCall, "Aucun :("), Inline: false},
-		{Name: "Off radio", Value: formatList(offRadio, "Aucun"), Inline: false},
+	embed.Description = fmt.Sprintf("Période du <t:%d:f> au <t:%d:f>", from.Unix(), to.Unix())
+	embed.Fields = []discord.EmbedField{
+		{Name: "Service", Value: formatList(onDuty, "Aucun :("), Inline: omit.Ptr(false)},
+		{Name: "Semi service", Value: formatList(onCall, "Aucun :("), Inline: omit.Ptr(false)},
+		{Name: "Off radio", Value: formatList(offRadio, "Aucun"), Inline: omit.Ptr(false)},
 	}
 	return embed
 }
 
-func BuildOffRadioUpdateEmbed(userID string, take bool) *discordgo.MessageEmbed {
+func BuildOffRadioUpdateEmbed(userID string, take bool) discord.Embed {
 	embed := embeds.BaseEmbed()
 	if take {
 		embed.Title = "Passage off radio"

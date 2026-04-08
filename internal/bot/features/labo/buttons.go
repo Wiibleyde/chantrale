@@ -3,46 +3,46 @@ package labo
 import (
 	"LsmsBot/internal/logger"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/disgo/rest"
 )
 
-func HandleCancelButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	messageID := i.Message.ID
+func HandleCancelButton(e *events.ComponentInteractionCreate) {
+	messageID := e.Message.ID
 
 	found, entry := Queue.CancelByMessageID(messageID)
 	if !found {
-		respondEphemeral(s, i, "Analyse introuvable ou déjà terminée.")
+		respondEphemeral(e, "Analyse introuvable ou déjà terminée.")
 		return
 	}
 
-	if entry.UserID != i.Member.User.ID {
+	member := e.Member()
+	if member == nil || entry.UserID != member.User.ID {
 		Queue.Add(entry)
-		respondEphemeral(s, i, "Vous ne pouvez pas annuler l'analyse d'un autre membre.")
+		respondEphemeral(e, "Vous ne pouvez pas annuler l'analyse d'un autre membre.")
 		return
 	}
 
 	embed := BuildLaboCancelledEmbed(entry)
-	components := []discordgo.MessageComponent{}
+	emptyComponents := []discord.LayoutComponent{}
 
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:         messageID,
-		Channel:    i.ChannelID,
-		Embeds:     &[]*discordgo.MessageEmbed{embed},
-		Components: &components,
+	if _, err := e.Client().Rest.UpdateMessage(e.Channel().ID(), messageID, discord.MessageUpdate{
+		Embeds:     &[]discord.Embed{embed},
+		Components: &emptyComponents,
 	}); err != nil {
 		logger.Error("Error editing labo message", "error", err)
 	}
 
-	respondEphemeral(s, i, "Analyse annulée avec succès.")
+	respondEphemeral(e, "Analyse annulée avec succès.")
 }
 
-func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: content,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
+func respondEphemeral(r interface {
+	CreateMessage(discord.MessageCreate, ...rest.RequestOpt) error
+}, content string) {
+	if err := r.CreateMessage(discord.MessageCreate{
+		Content: content,
+		Flags:   discord.MessageFlagEphemeral,
 	}); err != nil {
 		logger.Error("Error responding to interaction", "error", err)
 	}

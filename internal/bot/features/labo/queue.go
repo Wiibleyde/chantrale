@@ -7,13 +7,15 @@ import (
 
 	"LsmsBot/internal/logger"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/bot"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/snowflake/v2"
 )
 
 type LaboEntry struct {
-	ChannelID string
-	MessageID string
-	UserID    string
+	ChannelID snowflake.ID
+	MessageID snowflake.ID
+	UserID    snowflake.ID
 	StartTime time.Time
 	Name      string
 	Type      string
@@ -25,15 +27,15 @@ type LaboQueue struct {
 	mu      sync.Mutex
 	entries []*LaboEntry
 	ticker  *time.Ticker
-	session *discordgo.Session
+	client  *bot.Client
 }
 
 var Queue = &LaboQueue{}
 
-func (q *LaboQueue) SetSession(s *discordgo.Session) {
+func (q *LaboQueue) SetClient(c *bot.Client) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.session = s
+	q.client = c
 }
 
 func (q *LaboQueue) Add(entry *LaboEntry) {
@@ -70,12 +72,12 @@ func (q *LaboQueue) run() {
 			q.ticker = nil
 		}
 
-		session := q.session
+		client := q.client
 		q.mu.Unlock()
 
 		for _, e := range toNotify {
-			if session != nil {
-				notifyCompletion(session, e)
+			if client != nil {
+				notifyCompletion(client, e)
 			}
 		}
 
@@ -85,7 +87,7 @@ func (q *LaboQueue) run() {
 	}
 }
 
-func (q *LaboQueue) CancelByMessageID(messageID string) (bool, *LaboEntry) {
+func (q *LaboQueue) CancelByMessageID(messageID snowflake.ID) (bool, *LaboEntry) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -102,27 +104,27 @@ func (q *LaboQueue) CancelByMessageID(messageID string) (bool, *LaboEntry) {
 	return false, nil
 }
 
-func notifyCompletion(s *discordgo.Session, entry *LaboEntry) {
+func notifyCompletion(client *bot.Client, entry *LaboEntry) {
 	embed := BuildLaboResultEmbed(entry)
-	components := []discordgo.MessageComponent{}
+	emptyComponents := []discord.LayoutComponent{}
 
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:         entry.MessageID,
-		Channel:    entry.ChannelID,
-		Embeds:     &[]*discordgo.MessageEmbed{embed},
-		Components: &components,
+	if _, err := client.Rest.UpdateMessage(entry.ChannelID, entry.MessageID, discord.MessageUpdate{
+		Embeds:     &[]discord.Embed{embed},
+		Components: &emptyComponents,
 	}); err != nil {
 		logger.Error("Error editing labo message", "error", err)
 	}
 
-	ping, err := s.ChannelMessageSend(entry.ChannelID, fmt.Sprintf("<@%s> Votre analyse est terminée !", entry.UserID))
+	ping, err := client.Rest.CreateMessage(entry.ChannelID, discord.MessageCreate{
+		Content: fmt.Sprintf("<@%s> Votre analyse est terminée !", entry.UserID),
+	})
 	if err != nil {
 		logger.Error("Error sending ping", "error", err)
 		return
 	}
 
 	time.AfterFunc(60*time.Second, func() {
-		if err := s.ChannelMessageDelete(entry.ChannelID, ping.ID); err != nil {
+		if err := client.Rest.DeleteMessage(entry.ChannelID, ping.ID); err != nil {
 			logger.Error("Error deleting ping", "error", err)
 		}
 	})

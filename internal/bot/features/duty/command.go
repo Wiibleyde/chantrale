@@ -5,113 +5,102 @@ import (
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/disgo/rest"
+	"github.com/disgoorg/snowflake/v2"
 )
 
-var Commands = []*discordgo.ApplicationCommand{
-	{
+var Commands = []discord.ApplicationCommandCreate{
+	discord.SlashCommandCreate{
 		Name:        "duty",
 		Description: "Gérer le gestionnaire de service",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionSubCommand{
 				Name:        "add",
 				Description: "Ajouter un gestionnaire de service",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionRole,
-						Name:        "duty",
-						Description: "Rôle de service",
-						Required:    true,
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionRole,
-						Name:        "oncall",
-						Description: "Rôle de semi service",
-						Required:    true,
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionRole,
-						Name:        "offradio",
-						Description: "Rôle off radio",
-						Required:    true,
-					},
-					{
-						Type:        discordgo.ApplicationCommandOptionChannel,
-						Name:        "logchannel",
-						Description: "Canal de logs",
-						Required:    true,
-					},
+				Options: []discord.ApplicationCommandOption{
+					discord.ApplicationCommandOptionRole{Name: "duty", Description: "Rôle de service", Required: true},
+					discord.ApplicationCommandOptionRole{Name: "oncall", Description: "Rôle de semi service", Required: true},
+					discord.ApplicationCommandOptionRole{Name: "offradio", Description: "Rôle off radio", Required: true},
+					discord.ApplicationCommandOptionChannel{Name: "logchannel", Description: "Canal de logs", Required: true},
 				},
 			},
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			discord.ApplicationCommandOptionSubCommand{
 				Name:        "remove",
 				Description: "Supprimer un gestionnaire de service",
-				Options: []*discordgo.ApplicationCommandOption{
-					{
-						Type:        discordgo.ApplicationCommandOptionString,
-						Name:        "messageid",
-						Description: "ID du message du gestionnaire",
-						Required:    true,
-					},
+				Options: []discord.ApplicationCommandOption{
+					discord.ApplicationCommandOptionString{Name: "messageid", Description: "ID du message du gestionnaire", Required: true},
 				},
 			},
 		},
 	},
 }
 
-func HandleCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	data := i.ApplicationCommandData()
-	if len(data.Options) == 0 {
-		return
-	}
-	sub := data.Options[0]
-	switch sub.Name {
-	case "add":
-		handleAdd(s, i, sub)
-	case "remove":
-		handleRemove(s, i, sub)
+func respondEphemeral(r interface {
+	CreateMessage(discord.MessageCreate, ...rest.RequestOpt) error
+}, content string) {
+	if err := r.CreateMessage(discord.MessageCreate{
+		Content: content,
+		Flags:   discord.MessageFlagEphemeral,
+	}); err != nil {
+		logger.Error("Error responding to interaction", "error", err)
 	}
 }
 
-func handleAdd(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discordgo.ApplicationCommandInteractionDataOption) {
-	perms, err := s.UserChannelPermissions(i.Member.User.ID, i.ChannelID)
-	if err != nil || perms&discordgo.PermissionManageChannels == 0 {
-		respondEphemeral(s, i, "Vous n'avez pas la permission de gérer les canaux.")
+func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
+	data := e.SlashCommandInteractionData()
+	if data.SubCommandName == nil {
+		return
+	}
+	switch *data.SubCommandName {
+	case "add":
+		handleAdd(e)
+	case "remove":
+		handleRemove(e)
+	}
+}
+
+func handleAdd(e *events.ApplicationCommandInteractionCreate) {
+	member := e.Member()
+	if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
+		respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
 		return
 	}
 
-	opts := optionMap(sub.Options)
-	dutyRole := opts["duty"].RoleValue(s, i.GuildID)
-	onCallRole := opts["oncall"].RoleValue(s, i.GuildID)
-	offRadioRole := opts["offradio"].RoleValue(s, i.GuildID)
-	logChannel := opts["logchannel"].ChannelValue(s)
+	data := e.SlashCommandInteractionData()
+	dutyRole, _ := data.OptRole("duty")
+	onCallRole, _ := data.OptRole("oncall")
+	offRadioRole, _ := data.OptRole("offradio")
+	logChannel, _ := data.OptChannel("logchannel")
 
-	botMember, err := s.GuildMember(i.GuildID, s.State.User.ID)
+	client := e.Client()
+	guildID := *e.GuildID()
+
+	botMember, err := client.Rest.GetMember(guildID, client.ID())
 	if err != nil {
-		respondEphemeral(s, i, "Erreur lors de la récupération des informations du bot.")
+		respondEphemeral(e, "Erreur lors de la récupération des informations du bot.")
 		return
 	}
 
-	guild, err := s.Guild(i.GuildID)
+	guild, err := client.Rest.GetGuild(guildID, false)
 	if err != nil {
-		respondEphemeral(s, i, "Erreur lors de la récupération du serveur.")
+		respondEphemeral(e, "Erreur lors de la récupération du serveur.")
 		return
 	}
 
-	botHighest := highestRolePosition(guild.Roles, botMember.Roles)
+	botHighest := highestRolePosition(guild.Roles, botMember.RoleIDs)
 
-	for _, r := range []*discordgo.Role{dutyRole, onCallRole, offRadioRole} {
+	for _, r := range []discord.Role{dutyRole, onCallRole, offRadioRole} {
 		if r.Position >= botHighest {
-			respondEphemeral(s, i, "Un ou plusieurs rôles sont au-dessus ou au même niveau que le rôle le plus haut du bot.")
+			respondEphemeral(e, "Un ou plusieurs rôles sont au-dessus ou au même niveau que le rôle le plus haut du bot.")
 			return
 		}
 	}
 
-	members, err := s.GuildMembers(i.GuildID, "", 1000)
+	members, err := client.Rest.GetMembers(guildID, 1000, 0)
 	if err != nil {
-		respondEphemeral(s, i, "Erreur lors de la récupération des membres.")
+		respondEphemeral(e, "Erreur lors de la récupération des membres.")
 		return
 	}
 
@@ -121,25 +110,26 @@ func handleAdd(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discor
 
 	embed, row := BuildDutyEmbed(onDuty, onCall, offRadio)
 
-	msg, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Embeds:     []*discordgo.MessageEmbed{embed},
-		Components: []discordgo.MessageComponent{row},
+	channelID := e.Channel().ID()
+	msg, err := client.Rest.CreateMessage(channelID, discord.MessageCreate{
+		Embeds:     []discord.Embed{embed},
+		Components: []discord.LayoutComponent{row},
 	})
 	if err != nil {
 		logger.Error("Error sending duty message", "error", err)
-		respondEphemeral(s, i, "Erreur lors de l'envoi du message.")
+		respondEphemeral(e, "Erreur lors de l'envoi du message.")
 		return
 	}
 
-	dutyRoleID := dutyRole.ID
-	onCallRoleID := onCallRole.ID
-	offRadioRoleID := offRadioRole.ID
-	logsChannelID := logChannel.ID
-	msgID := msg.ID
+	dutyRoleID := dutyRole.ID.String()
+	onCallRoleID := onCallRole.ID.String()
+	offRadioRoleID := offRadioRole.ID.String()
+	logsChannelID := logChannel.ID.String()
+	msgID := msg.ID.String()
 
 	dm := models.DutyManager{
-		GuildID:        i.GuildID,
-		ChannelID:      i.ChannelID,
+		GuildID:        guildID.String(),
+		ChannelID:      channelID.String(),
 		MessageID:      &msgID,
 		DutyRoleID:     &dutyRoleID,
 		OnCallRoleID:   &onCallRoleID,
@@ -149,55 +139,56 @@ func handleAdd(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discor
 
 	if err := database.DB.Create(&dm).Error; err != nil {
 		logger.Error("Error saving DutyManager", "error", err)
-		respondEphemeral(s, i, "Erreur lors de l'enregistrement en base de données.")
+		respondEphemeral(e, "Erreur lors de l'enregistrement en base de données.")
 		return
 	}
 
-	respondEphemeral(s, i, "Gestionnaire de service créé avec succès.")
+	respondEphemeral(e, "Gestionnaire de service créé avec succès.")
 }
 
-func handleRemove(s *discordgo.Session, i *discordgo.InteractionCreate, sub *discordgo.ApplicationCommandInteractionDataOption) {
-	perms, err := s.UserChannelPermissions(i.Member.User.ID, i.ChannelID)
-	if err != nil || perms&discordgo.PermissionManageChannels == 0 {
-		respondEphemeral(s, i, "Vous n'avez pas la permission de gérer les canaux.")
+func handleRemove(e *events.ApplicationCommandInteractionCreate) {
+	member := e.Member()
+	if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
+		respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
 		return
 	}
 
-	messageID := sub.Options[0].StringValue()
+	data := e.SlashCommandInteractionData()
+	messageID := data.String("messageid")
+
+	guildID := *e.GuildID()
 
 	var dm models.DutyManager
-	if err := database.DB.Where("guild_id = ? AND message_id = ?", i.GuildID, messageID).First(&dm).Error; err != nil {
-		respondEphemeral(s, i, "Gestionnaire de service introuvable.")
+	if err := database.DB.Where("guild_id = ? AND message_id = ?", guildID.String(), messageID).First(&dm).Error; err != nil {
+		respondEphemeral(e, "Gestionnaire de service introuvable.")
 		return
 	}
 
-	if err := s.ChannelMessageDelete(dm.ChannelID, messageID); err != nil {
-		logger.Error("Error deleting duty message", "error", err)
+	chanID, err := snowflake.Parse(dm.ChannelID)
+	if err == nil {
+		msgSnowflake, err2 := snowflake.Parse(messageID)
+		if err2 == nil {
+			if err3 := e.Client().Rest.DeleteMessage(chanID, msgSnowflake); err3 != nil {
+				logger.Error("Error deleting duty message", "error", err3)
+			}
+		}
 	}
 
 	if err := database.DB.Delete(&dm).Error; err != nil {
 		logger.Error("Error deleting DutyManager", "error", err)
-		respondEphemeral(s, i, "Erreur lors de la suppression.")
+		respondEphemeral(e, "Erreur lors de la suppression.")
 		return
 	}
 
-	respondEphemeral(s, i, "Gestionnaire de service supprimé avec succès.")
+	respondEphemeral(e, "Gestionnaire de service supprimé avec succès.")
 }
 
-func optionMap(opts []*discordgo.ApplicationCommandInteractionDataOption) map[string]*discordgo.ApplicationCommandInteractionDataOption {
-	m := make(map[string]*discordgo.ApplicationCommandInteractionDataOption)
-	for _, opt := range opts {
-		m[opt.Name] = opt
-	}
-	return m
-}
-
-func membersWithRole(members []*discordgo.Member, roleID string) []string {
+func membersWithRole(members []discord.Member, roleID snowflake.ID) []string {
 	var result []string
 	for _, m := range members {
-		for _, r := range m.Roles {
+		for _, r := range m.RoleIDs {
 			if r == roleID {
-				result = append(result, m.User.ID)
+				result = append(result, m.User.ID.String())
 				break
 			}
 		}
@@ -205,7 +196,7 @@ func membersWithRole(members []*discordgo.Member, roleID string) []string {
 	return result
 }
 
-func highestRolePosition(roles []*discordgo.Role, memberRoleIDs []string) int {
+func highestRolePosition(roles []discord.Role, memberRoleIDs []snowflake.ID) int {
 	highest := 0
 	for _, r := range roles {
 		for _, id := range memberRoleIDs {
@@ -215,16 +206,4 @@ func highestRolePosition(roles []*discordgo.Role, memberRoleIDs []string) int {
 		}
 	}
 	return highest
-}
-
-func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: content,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	}); err != nil {
-		logger.Error("Error responding to interaction", "error", err)
-	}
 }

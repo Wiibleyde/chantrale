@@ -3,25 +3,23 @@ package embeds
 import (
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
 )
 
-var session *discordgo.Session
+var avatarURL string
 
-func Init(s *discordgo.Session) {
-	session = s
+func Init(url string) {
+	avatarURL = url
 }
 
-func BaseEmbed() *discordgo.MessageEmbed {
-	embed := &discordgo.MessageEmbed{
+func BaseEmbed() discord.Embed {
+	t := time.Now()
+	return discord.Embed{
 		Color:     0xFFFFFF,
-		Timestamp: time.Now().Format(time.RFC3339),
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: "Chantrale – LSMS",
+		Timestamp: &t,
+		Footer: &discord.EmbedFooter{
+			Text:    "Chantrale – LSMS",
+			IconURL: avatarURL,
 		},
 	}
-	if session != nil && session.State != nil && session.State.User != nil {
-		embed.Footer.IconURL = session.State.User.AvatarURL("256")
-	}
-	return embed
 }
