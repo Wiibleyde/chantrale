@@ -1,0 +1,76 @@
+package duty
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"LsmsBot/internal/database"
+	"LsmsBot/internal/database/models"
+	"LsmsBot/internal/logger"
+
+	"github.com/disgoorg/disgo/bot"
+	"github.com/disgoorg/disgo/gateway"
+	"github.com/disgoorg/snowflake/v2"
+)
+
+var (
+	guildCounts   = make(map[string][2]int) // [onDuty, offRadio] per guild
+	guildCountsMu sync.Mutex
+)
+
+func setGuildCounts(guildID string, onDuty, offRadio int) {
+	guildCountsMu.Lock()
+	defer guildCountsMu.Unlock()
+	guildCounts[guildID] = [2]int{onDuty, offRadio}
+}
+
+func updateBotPresence(client *bot.Client) {
+	guildCountsMu.Lock()
+	totalOnDuty, totalOffRadio := 0, 0
+	for _, counts := range guildCounts {
+		totalOnDuty += counts[0]
+		totalOffRadio += counts[1]
+	}
+	guildCountsMu.Unlock()
+
+	status := fmt.Sprintf("%d en service • %d hors service", totalOnDuty, totalOffRadio)
+	if err := client.SetPresence(context.Background(), gateway.WithWatchingActivity(status)); err != nil {
+		logger.Error("Error updating bot presence", "error", err)
+	}
+}
+
+func InitPresence(client *bot.Client) {
+	var dms []models.DutyManager
+	if err := database.DB.Find(&dms).Error; err != nil {
+		logger.Error("Error loading DutyManagers for presence init", "error", err)
+		return
+	}
+
+	for _, dm := range dms {
+		guildID, err := snowflake.Parse(dm.GuildID)
+		if err != nil {
+			continue
+		}
+		members, err := client.Rest.GetMembers(guildID, 1000, 0)
+		if err != nil {
+			logger.Warn("Error fetching members for presence init", "guild", dm.GuildID, "error", err)
+			continue
+		}
+		onDuty := 0
+		if dm.DutyRoleID != nil {
+			if rid, err := snowflake.Parse(*dm.DutyRoleID); err == nil {
+				onDuty = len(membersWithRole(members, rid))
+			}
+		}
+		offRadio := 0
+		if dm.OffRadioRoleID != nil {
+			if rid, err := snowflake.Parse(*dm.OffRadioRoleID); err == nil {
+				offRadio = len(membersWithRole(members, rid))
+			}
+		}
+		setGuildCounts(dm.GuildID, onDuty, offRadio)
+	}
+
+	updateBotPresence(client)
+}

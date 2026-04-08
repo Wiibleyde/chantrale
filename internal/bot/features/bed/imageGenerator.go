@@ -41,8 +41,6 @@ var BedConfigs = []BedConfig{
 	{Letter: "F", MinX: 373, MinY: 173, MaxX: 411, MaxY: 243},
 }
 
-// truncateLines wraps text into word-wrapped lines at maxWidth, keeps at most
-// maxLines lines, and appends "..." to the last kept line if text was cut off.
 func truncateLines(dc *gg.Context, text string, maxWidth float64, maxLines int) string {
 	words := strings.Fields(text)
 	if len(words) == 0 {
@@ -77,7 +75,6 @@ func truncateLines(dc *gg.Context, text string, maxWidth float64, maxLines int) 
 			lines[maxLines-1] = candidate
 			break
 		}
-		// Trim one character from the end
 		runes := []rune(last)
 		last = strings.TrimRight(string(runes[:len(runes)-1]), " ")
 	}
@@ -109,7 +106,6 @@ func GenerateBedImage(assignments []models.BedAssignment) ([]byte, error) {
 	h := bounds.Dy() * scale
 	dc := gg.NewContext(w, h)
 
-	// Draw base image scaled up
 	dc.Scale(scale, scale)
 	dc.DrawImage(baseImg, 0, 0)
 	dc.Identity()
@@ -157,7 +153,6 @@ func GenerateBedImage(assignments []models.BedAssignment) ([]byte, error) {
 			dc.DrawStringWrapped(displayName, cx+off[0], cy+off[1], 0.5, 0.5, bh-8, 1.2, gg.AlignCenter)
 		}
 
-		// White text on top
 		dc.SetColor(color.White)
 		dc.DrawStringWrapped(displayName, cx, cy, 0.5, 0.5, bh-8, 1.2, gg.AlignCenter)
 

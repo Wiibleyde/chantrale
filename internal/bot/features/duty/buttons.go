@@ -5,7 +5,6 @@ import (
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
 
-	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
 )
@@ -116,45 +115,6 @@ func handleRoleToggle(e *events.ComponentInteractionCreate, roleType string) {
 			msgContent = "Vous avez pris le semi service."
 		case "offradio":
 			msgContent = "Vous êtes passé off radio."
-		}
-	}
-
-	members, err := client.Rest.GetMembers(guildID, 1000, 0)
-	if err != nil {
-		logger.Error("Error fetching members", "error", err)
-	}
-
-	var onDuty, onCall, offRadio []string
-	if dm.DutyRoleID != nil {
-		if rid, err := snowflake.Parse(*dm.DutyRoleID); err == nil {
-			onDuty = membersWithRole(members, rid)
-		}
-	}
-	if dm.OnCallRoleID != nil {
-		if rid, err := snowflake.Parse(*dm.OnCallRoleID); err == nil {
-			onCall = membersWithRole(members, rid)
-		}
-	}
-	if dm.OffRadioRoleID != nil {
-		if rid, err := snowflake.Parse(*dm.OffRadioRoleID); err == nil {
-			offRadio = membersWithRole(members, rid)
-		}
-	}
-
-	embed, row := BuildDutyEmbed(onDuty, onCall, offRadio)
-
-	chanID, err := snowflake.Parse(dm.ChannelID)
-	if err == nil {
-		msgSnowflake, err2 := snowflake.Parse(*dm.MessageID)
-		if err2 == nil {
-			embeds := []discord.Embed{embed}
-			components := []discord.LayoutComponent{row}
-			if _, err3 := client.Rest.UpdateMessage(chanID, msgSnowflake, discord.MessageUpdate{
-				Embeds:     &embeds,
-				Components: &components,
-			}); err3 != nil {
-				logger.Error("Error editing duty message", "error", err3)
-			}
 		}
 	}
 

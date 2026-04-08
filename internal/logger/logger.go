@@ -34,13 +34,11 @@ func (h *prettyHandler) Enabled(_ context.Context, lvl slog.Level) bool {
 func (h *prettyHandler) Handle(_ context.Context, r slog.Record) error {
 	var buf bytes.Buffer
 
-	// Time
 	buf.WriteString(colorGray)
 	buf.WriteString(r.Time.Format(time.TimeOnly))
 	buf.WriteString(colorReset)
 	buf.WriteByte(' ')
 
-	// Level
 	switch r.Level {
 	case slog.LevelDebug:
 		fmt.Fprintf(&buf, "%sDEBUG%s", colorBlue, colorReset)
@@ -55,10 +53,8 @@ func (h *prettyHandler) Handle(_ context.Context, r slog.Record) error {
 	}
 	buf.WriteByte(' ')
 
-	// Message
 	fmt.Fprintf(&buf, "%s%s%s", colorBold, r.Message, colorReset)
 
-	// Attributes
 	r.Attrs(func(a slog.Attr) bool {
 		fmt.Fprintf(&buf, "  %s%s%s=%v", colorGray, a.Key, colorReset, a.Value)
 		return true

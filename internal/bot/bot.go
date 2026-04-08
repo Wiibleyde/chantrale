@@ -59,6 +59,7 @@ func Run() {
 		logger.Info("Logged in", "user", e.User.Username)
 		embeds.Init(e.User.EffectiveAvatarURL())
 		duty.StartScheduler(client)
+		duty.InitPresence(client)
 		for _, guildID := range cfg.GuildIDs {
 			guildSnowflake := snowflake.MustParse(guildID)
 			if _, err := e.Client().Rest.SetGuildCommands(e.Application.ID, guildSnowflake, allCommands); err != nil {

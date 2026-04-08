@@ -14,32 +14,46 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
+// debounceState keeps prevRoles from the first event so the full diff is captured
+// even when multiple role changes arrive in rapid succession.
+type debounceState struct {
+	timer     *time.Timer
+	prevRoles []snowflake.ID
+}
+
 var (
-	debounceMap = make(map[string]*time.Timer)
+	debounceMap = make(map[string]*debounceState)
 	debounceMu  sync.Mutex
+
+	// embedDebounceMap groups rapid role changes into a single embed update per message.
+	embedDebounceMap = make(map[string]*time.Timer)
+	embedDebounceMu  sync.Mutex
 )
 
 func HandleGuildMemberUpdate(e *events.GuildMemberUpdate) {
 	key := e.GuildID.String() + "-" + e.Member.User.ID.String()
 
 	debounceMu.Lock()
-	if t, ok := debounceMap[key]; ok {
-		t.Stop()
-	}
 
 	prevRoles := e.OldMember.RoleIDs
+	if existing, ok := debounceMap[key]; ok {
+		existing.timer.Stop()
+		prevRoles = existing.prevRoles
+	}
 
 	client := e.Client()
 	guildID := e.GuildID
 	member := e.Member
 
-	debounceMap[key] = time.AfterFunc(100*time.Millisecond, func() {
+	state := &debounceState{prevRoles: prevRoles}
+	state.timer = time.AfterFunc(100*time.Millisecond, func() {
 		debounceMu.Lock()
 		delete(debounceMap, key)
 		debounceMu.Unlock()
 
 		handleMemberRoleChange(client, guildID, member, prevRoles)
 	})
+	debounceMap[key] = state
 	debounceMu.Unlock()
 }
 
@@ -59,12 +73,6 @@ func handleMemberRoleChange(client *bot.Client, guildID snowflake.ID, member dis
 		return
 	}
 
-	members, err := client.Rest.GetMembers(guildID, 1000, 0)
-	if err != nil {
-		logger.Error("Error fetching members", "error", err)
-		return
-	}
-
 	for _, dm := range dms {
 		affected := false
 		for _, roleID := range changed {
@@ -76,103 +84,126 @@ func handleMemberRoleChange(client *bot.Client, guildID snowflake.ID, member dis
 				break
 			}
 		}
-		if !affected {
+		if !affected || dm.MessageID == nil {
 			continue
 		}
 
-		if dm.MessageID == nil {
-			continue
-		}
-
-		var onDuty, onCall, offRadio []string
-		if dm.DutyRoleID != nil {
-			if rid, err := snowflake.Parse(*dm.DutyRoleID); err == nil {
-				onDuty = membersWithRole(members, rid)
-			}
-		}
-		if dm.OnCallRoleID != nil {
-			if rid, err := snowflake.Parse(*dm.OnCallRoleID); err == nil {
-				onCall = membersWithRole(members, rid)
-			}
-		}
-		if dm.OffRadioRoleID != nil {
-			if rid, err := snowflake.Parse(*dm.OffRadioRoleID); err == nil {
-				offRadio = membersWithRole(members, rid)
+		if dm.LogsChannelID != nil {
+			if logsChannelID, err := snowflake.Parse(*dm.LogsChannelID); err == nil {
+				sendLogMessages(client, logsChannelID, guildID.String(), member.User.ID.String(), dm, added, removed)
 			}
 		}
 
-		embed, row := BuildDutyEmbed(onDuty, onCall, offRadio)
-		chanID, err := snowflake.Parse(dm.ChannelID)
-		if err == nil {
-			msgSnowflake, err2 := snowflake.Parse(*dm.MessageID)
-			if err2 == nil {
-				embeds := []discord.Embed{embed}
-				components := []discord.LayoutComponent{row}
-				if _, err3 := client.Rest.UpdateMessage(chanID, msgSnowflake, discord.MessageUpdate{
-					Embeds:     &embeds,
-					Components: &components,
-				}); err3 != nil {
-					logger.Error("Error editing duty message", "error", err3)
-				}
-			}
-		}
+		scheduleEmbedUpdate(client, guildID, dm)
+	}
+}
 
-		if dm.LogsChannelID == nil {
-			continue
-		}
-
-		logsChannelID, err := snowflake.Parse(*dm.LogsChannelID)
-		if err != nil {
-			continue
-		}
-
-		userID := member.User.ID.String()
-		for _, roleID := range added {
-			roleIDStr := roleID.String()
-			var logEmbed *discord.Embed
-			if dm.DutyRoleID != nil && *dm.DutyRoleID == roleIDStr {
-				e := BuildDutyUpdateEmbed(userID, true)
-				logEmbed = &e
-				trackDuty(guildID.String(), userID)
-			} else if dm.OnCallRoleID != nil && *dm.OnCallRoleID == roleIDStr {
-				e := BuildOnCallUpdateEmbed(userID, true)
-				logEmbed = &e
-				trackOnCall(guildID.String(), userID)
-			} else if dm.OffRadioRoleID != nil && *dm.OffRadioRoleID == roleIDStr {
-				e := BuildOffRadioUpdateEmbed(userID, true)
-				logEmbed = &e
-				trackOffRadio(guildID.String(), userID)
-			}
-			if logEmbed != nil {
-				if _, err := client.Rest.CreateMessage(logsChannelID, discord.MessageCreate{
-					Embeds: []discord.Embed{*logEmbed},
-				}); err != nil {
-					logger.Error("Error sending log embed", "error", err)
-				}
-			}
-		}
-		for _, roleID := range removed {
-			roleIDStr := roleID.String()
-			var logEmbed *discord.Embed
-			if dm.DutyRoleID != nil && *dm.DutyRoleID == roleIDStr {
-				e := BuildDutyUpdateEmbed(userID, false)
-				logEmbed = &e
-			} else if dm.OnCallRoleID != nil && *dm.OnCallRoleID == roleIDStr {
-				e := BuildOnCallUpdateEmbed(userID, false)
-				logEmbed = &e
-			} else if dm.OffRadioRoleID != nil && *dm.OffRadioRoleID == roleIDStr {
-				e := BuildOffRadioUpdateEmbed(userID, false)
-				logEmbed = &e
-			}
-			if logEmbed != nil {
-				if _, err := client.Rest.CreateMessage(logsChannelID, discord.MessageCreate{
-					Embeds: []discord.Embed{*logEmbed},
-				}); err != nil {
-					logger.Error("Error sending log embed", "error", err)
-				}
-			}
+func sendLogMessages(
+	client *bot.Client,
+	logsChannelID snowflake.ID,
+	guildID, userID string,
+	dm models.DutyManager,
+	added, removed []snowflake.ID,
+) {
+	send := func(e discord.Embed) {
+		if _, err := client.Rest.CreateMessage(logsChannelID, discord.MessageCreate{
+			Embeds: []discord.Embed{e},
+		}); err != nil {
+			logger.Error("Error sending log embed", "error", err)
 		}
 	}
+
+	for _, roleID := range added {
+		roleIDStr := roleID.String()
+		if dm.DutyRoleID != nil && *dm.DutyRoleID == roleIDStr {
+			send(BuildDutyUpdateEmbed(userID, true))
+			trackDuty(guildID, userID)
+		} else if dm.OnCallRoleID != nil && *dm.OnCallRoleID == roleIDStr {
+			send(BuildOnCallUpdateEmbed(userID, true))
+			trackOnCall(guildID, userID)
+		} else if dm.OffRadioRoleID != nil && *dm.OffRadioRoleID == roleIDStr {
+			send(BuildOffRadioUpdateEmbed(userID, true))
+			trackOffRadio(guildID, userID)
+		}
+	}
+	for _, roleID := range removed {
+		roleIDStr := roleID.String()
+		if dm.DutyRoleID != nil && *dm.DutyRoleID == roleIDStr {
+			send(BuildDutyUpdateEmbed(userID, false))
+		} else if dm.OnCallRoleID != nil && *dm.OnCallRoleID == roleIDStr {
+			send(BuildOnCallUpdateEmbed(userID, false))
+		} else if dm.OffRadioRoleID != nil && *dm.OffRadioRoleID == roleIDStr {
+			send(BuildOffRadioUpdateEmbed(userID, false))
+		}
+	}
+}
+
+// scheduleEmbedUpdate batches embed updates within a 500ms window to avoid spamming the API.
+func scheduleEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.DutyManager) {
+	key := *dm.MessageID
+
+	embedDebounceMu.Lock()
+	if t, ok := embedDebounceMap[key]; ok {
+		t.Stop()
+	}
+	embedDebounceMap[key] = time.AfterFunc(500*time.Millisecond, func() {
+		embedDebounceMu.Lock()
+		delete(embedDebounceMap, key)
+		embedDebounceMu.Unlock()
+
+		performEmbedUpdate(client, guildID, dm)
+	})
+	embedDebounceMu.Unlock()
+}
+
+// performEmbedUpdate fetches members at call time so the embed is never stale.
+func performEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.DutyManager) {
+	members, err := client.Rest.GetMembers(guildID, 1000, 0)
+	if err != nil {
+		logger.Error("Error fetching members for embed update", "guild", guildID.String(), "error", err)
+		return
+	}
+
+	var onDuty, onCall, offRadio []string
+	if dm.DutyRoleID != nil {
+		if rid, err := snowflake.Parse(*dm.DutyRoleID); err == nil {
+			onDuty = membersWithRole(members, rid)
+		}
+	}
+	if dm.OnCallRoleID != nil {
+		if rid, err := snowflake.Parse(*dm.OnCallRoleID); err == nil {
+			onCall = membersWithRole(members, rid)
+		}
+	}
+	if dm.OffRadioRoleID != nil {
+		if rid, err := snowflake.Parse(*dm.OffRadioRoleID); err == nil {
+			offRadio = membersWithRole(members, rid)
+		}
+	}
+
+	setGuildCounts(guildID.String(), len(onDuty), len(offRadio))
+
+	embed, row := BuildDutyEmbed(onDuty, onCall, offRadio)
+	chanID, err := snowflake.Parse(dm.ChannelID)
+	if err != nil {
+		logger.Error("Invalid channel ID in DutyManager", "channelID", dm.ChannelID, "error", err)
+		return
+	}
+	msgSnowflake, err := snowflake.Parse(*dm.MessageID)
+	if err != nil {
+		logger.Error("Invalid message ID in DutyManager", "messageID", *dm.MessageID, "error", err)
+		return
+	}
+	embeds := []discord.Embed{embed}
+	components := []discord.LayoutComponent{row}
+	if _, err := client.Rest.UpdateMessage(chanID, msgSnowflake, discord.MessageUpdate{
+		Embeds:     &embeds,
+		Components: &components,
+	}); err != nil {
+		logger.Error("Error editing duty message", "error", err)
+	}
+
+	updateBotPresence(client)
 }
 
 func diffRoles(a, b []snowflake.ID) []snowflake.ID {

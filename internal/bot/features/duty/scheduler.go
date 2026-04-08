@@ -64,7 +64,12 @@ func sendSummaryToAll(client *bot.Client, stripRoles bool) {
 
 		if stripRoles {
 			stripDutyRoles(client, dm)
+			setGuildCounts(dm.GuildID, 0, 0)
 		}
+	}
+
+	if stripRoles {
+		updateBotPresence(client)
 	}
 }
 
