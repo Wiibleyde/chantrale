@@ -147,16 +147,9 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 		Time:      analyseTime,
 	}
 
-	waitEmbed := BuildLaboWaitingEmbed(entry)
+	waitComponents := BuildLaboWaitingComponents(entry)
 
-	msg, err := e.Client().Rest.CreateMessage(channelID, discord.MessageCreate{
-		Embeds: []discord.Embed{waitEmbed},
-		Components: []discord.LayoutComponent{
-			discord.ActionRowComponent{Components: []discord.InteractiveComponent{
-				discord.ButtonComponent{Label: "Annuler", Style: discord.ButtonStyleDanger, CustomID: "laboCancelButton"},
-			}},
-		},
-	})
+	msg, err := e.Client().Rest.CreateMessage(channelID, discord.NewMessageCreateV2(waitComponents...))
 	if err != nil {
 		logger.Error("Error sending labo message", "error", err)
 		if _, err2 := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{

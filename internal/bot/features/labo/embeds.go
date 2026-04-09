@@ -6,7 +6,6 @@ import (
 	"LsmsBot/internal/bot/embeds"
 
 	"github.com/disgoorg/disgo/discord"
-	"github.com/disgoorg/omit"
 )
 
 func GetAnalyseTypeName(t string) string {
@@ -24,40 +23,44 @@ func GetAnalyseTypeName(t string) string {
 	}
 }
 
-func BuildLaboWaitingEmbed(entry *LaboEntry) discord.Embed {
-	embed := embeds.BaseEmbed()
-	embed.Title = "Analyse en cours"
-	embed.Color = 0xFF8800
-	embed.Fields = []discord.EmbedField{
-		{Name: "Type", Value: GetAnalyseTypeName(entry.Type), Inline: omit.Ptr(true)},
-		{Name: "Patient", Value: entry.Name, Inline: omit.Ptr(true)},
-		{Name: "Demandeur", Value: fmt.Sprintf("<@%s>", entry.UserID), Inline: omit.Ptr(true)},
-		{Name: "Durée estimée", Value: fmt.Sprintf("%d minute(s)", entry.Time), Inline: omit.Ptr(true)},
+func BuildLaboWaitingComponents(entry *LaboEntry) []discord.LayoutComponent {
+	return []discord.LayoutComponent{
+		embeds.NewContainerV2(0xFF8800,
+			discord.NewTextDisplay("## ⏳ Analyse en cours"),
+			discord.NewSmallSeparator(),
+			discord.NewTextDisplay(fmt.Sprintf("**Type :** %s", GetAnalyseTypeName(entry.Type))),
+			discord.NewTextDisplay(fmt.Sprintf("**Patient :** %s", entry.Name)),
+			discord.NewTextDisplay(fmt.Sprintf("**Demandeur :** <@%s>", entry.UserID)),
+			discord.NewTextDisplay(fmt.Sprintf("**Durée estimée :** %d minute(s)", entry.Time)),
+			discord.NewLargeSeparator(),
+			discord.NewActionRow(
+				discord.NewDangerButton("Annuler", "laboCancelButton"),
+			),
+		),
 	}
-	return embed
 }
 
-func BuildLaboResultEmbed(entry *LaboEntry) discord.Embed {
-	embed := embeds.BaseEmbed()
-	embed.Title = "Analyse terminée"
-	embed.Color = 0x00FF00
-	embed.Fields = []discord.EmbedField{
-		{Name: "Type", Value: GetAnalyseTypeName(entry.Type), Inline: omit.Ptr(true)},
-		{Name: "Résultat", Value: entry.Result, Inline: omit.Ptr(true)},
-		{Name: "Patient", Value: entry.Name, Inline: omit.Ptr(true)},
-		{Name: "Demandeur", Value: fmt.Sprintf("<@%s>", entry.UserID), Inline: omit.Ptr(true)},
+func BuildLaboResultComponents(entry *LaboEntry) []discord.LayoutComponent {
+	return []discord.LayoutComponent{
+		embeds.NewContainerV2(0x00FF00,
+			discord.NewTextDisplay("## ✅ Analyse terminée"),
+			discord.NewSmallSeparator(),
+			discord.NewTextDisplay(fmt.Sprintf("**Type :** %s", GetAnalyseTypeName(entry.Type))),
+			discord.NewTextDisplay(fmt.Sprintf("**Résultat :** %s", entry.Result)),
+			discord.NewTextDisplay(fmt.Sprintf("**Patient :** %s", entry.Name)),
+			discord.NewTextDisplay(fmt.Sprintf("**Demandeur :** <@%s>", entry.UserID)),
+		),
 	}
-	return embed
 }
 
-func BuildLaboCancelledEmbed(entry *LaboEntry) discord.Embed {
-	embed := embeds.BaseEmbed()
-	embed.Title = "Analyse annulée"
-	embed.Color = 0xFF0000
-	embed.Fields = []discord.EmbedField{
-		{Name: "Type", Value: GetAnalyseTypeName(entry.Type), Inline: omit.Ptr(true)},
-		{Name: "Patient", Value: entry.Name, Inline: omit.Ptr(true)},
-		{Name: "Demandeur", Value: fmt.Sprintf("<@%s>", entry.UserID), Inline: omit.Ptr(true)},
+func BuildLaboCancelledComponents(entry *LaboEntry) []discord.LayoutComponent {
+	return []discord.LayoutComponent{
+		embeds.NewContainerV2(0xFF0000,
+			discord.NewTextDisplay("## ❌ Analyse annulée"),
+			discord.NewSmallSeparator(),
+			discord.NewTextDisplay(fmt.Sprintf("**Type :** %s", GetAnalyseTypeName(entry.Type))),
+			discord.NewTextDisplay(fmt.Sprintf("**Patient :** %s", entry.Name)),
+			discord.NewTextDisplay(fmt.Sprintf("**Demandeur :** <@%s>", entry.UserID)),
+		),
 	}
-	return embed
 }

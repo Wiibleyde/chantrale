@@ -2,11 +2,11 @@ package radio
 
 import (
 	"encoding/base64"
+	"strings"
 
 	"LsmsBot/internal/bot/embeds"
 
 	"github.com/disgoorg/disgo/discord"
-	"github.com/disgoorg/omit"
 )
 
 type RadioEntry struct {
@@ -14,73 +14,78 @@ type RadioEntry struct {
 	Frequency string
 }
 
-func BuildRadioEmbed(radios []RadioEntry) discord.Embed {
-	embed := embeds.BaseEmbed()
-	embed.Title = "Gestionnaire de radios"
-	embed.Color = 0x0099FF
+// BuildRadioComponents returns a Components V2 layout for the radio manager.
+// Each radio is a Section with name+frequency text and an edit button accessory.
+func BuildRadioComponents(radios []RadioEntry) []discord.LayoutComponent {
+	var subs []discord.ContainerSubComponent
+
+	subs = append(subs, discord.NewTextDisplay("## 📻 Gestionnaire de radios"))
 
 	if len(radios) == 0 {
-		embed.Description = "Aucune radio configurée pour le moment."
+		subs = append(subs,
+			discord.NewLargeSeparator(),
+			discord.NewTextDisplay("Aucune radio configurée pour le moment."),
+		)
 	} else {
-		embed.Description = "Utilisez les boutons ci-dessous pour gérer les radios disponibles."
 		for _, r := range radios {
-			embed.Fields = append(embed.Fields, discord.EmbedField{
-				Name:   r.Name,
-				Value:  r.Frequency,
-				Inline: omit.Ptr(true),
-			})
-		}
-	}
-
-	return embed
-}
-
-func BuildRadioComponents(radios []RadioEntry) []discord.LayoutComponent {
-	var components []discord.LayoutComponent
-
-	maxRadios := 20
-	if len(radios) < maxRadios {
-		maxRadios = len(radios)
-	}
-
-	for i := 0; i < maxRadios; i += 5 {
-		end := i + 5
-		if end > maxRadios {
-			end = maxRadios
-		}
-		var btns []discord.InteractiveComponent
-		for _, r := range radios[i:end] {
 			encoded := base64.RawURLEncoding.EncodeToString([]byte(r.Name))
-			btns = append(btns, discord.ButtonComponent{
-				Label:    "Modifier la radio " + r.Name,
-				Style:    discord.ButtonStyleSecondary,
-				CustomID: "lsmsRadioEdit--" + encoded,
-			})
+			section := discord.NewSection(
+				discord.NewTextDisplay("**"+r.Name+"**"),
+				discord.NewTextDisplay(r.Frequency),
+			).WithAccessory(discord.NewSecondaryButton("✏️ Modifier", "lsmsRadioEdit--"+encoded))
+			subs = append(subs, discord.NewSmallSeparator(), section)
 		}
-		components = append(components, discord.ActionRowComponent{Components: btns})
 	}
 
-	lastRow := discord.ActionRowComponent{
-		Components: []discord.InteractiveComponent{
-			discord.ButtonComponent{Label: "+", Style: discord.ButtonStyleSuccess, CustomID: "lsmsRadioAdd"},
-			discord.ButtonComponent{Label: "-", Style: discord.ButtonStyleDanger, CustomID: "lsmsRadioRemove"},
-		},
-	}
-	components = append(components, lastRow)
+	subs = append(subs,
+		discord.NewLargeSeparator(),
+		discord.NewActionRow(
+			discord.NewSuccessButton("➕ Ajouter une radio", "lsmsRadioAdd"),
+			discord.NewDangerButton("➖ Supprimer une radio", "lsmsRadioRemove"),
+		),
+	)
 
-	return components
+	return []discord.LayoutComponent{embeds.NewContainerV2(0x0099FF, subs...)}
 }
 
-func ParseRadiosFromEmbed(embeds []discord.Embed) []RadioEntry {
+// ParseRadiosFromComponents reads radio entries from a Components V2 message.
+// It finds Sections whose button accessory CustomID starts with "lsmsRadioEdit--".
+func ParseRadiosFromComponents(components []discord.LayoutComponent) []RadioEntry {
 	var radios []RadioEntry
-	if len(embeds) == 0 {
-		return radios
-	}
-	for _, field := range embeds[0].Fields {
-		radios = append(radios, RadioEntry{
-			Name:      field.Name,
-			Frequency: field.Value,
-		})
+	for _, layout := range components {
+		container, ok := layout.(discord.ContainerComponent)
+		if !ok {
+			continue
+		}
+		for _, sub := range container.Components {
+			section, ok := sub.(discord.SectionComponent)
+			if !ok {
+				continue
+			}
+			btn, ok := section.Accessory.(discord.ButtonComponent)
+			if !ok {
+				continue
+			}
+			cid := btn.CustomID
+			if !strings.HasPrefix(string(cid), "lsmsRadioEdit--") {
+				continue
+			}
+			encoded := strings.TrimPrefix(string(cid), "lsmsRadioEdit--")
+			nameBytes, err := base64.RawURLEncoding.DecodeString(encoded)
+			if err != nil {
+				continue
+			}
+			freq := ""
+			if len(section.Components) >= 2 {
+				if td, ok := section.Components[1].(discord.TextDisplayComponent); ok {
+					freq = td.Content
+				}
+			}
+			radios = append(radios, RadioEntry{
+				Name:      string(nameBytes),
+				Frequency: freq,
+			})
+		}
 	}
 	return radios
 }

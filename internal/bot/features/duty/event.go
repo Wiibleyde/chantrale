@@ -90,7 +90,8 @@ func handleMemberRoleChange(client *bot.Client, guildID snowflake.ID, member dis
 
 		if dm.LogsChannelID != nil {
 			if logsChannelID, err := snowflake.Parse(*dm.LogsChannelID); err == nil {
-				sendLogMessages(client, logsChannelID, guildID.String(), member.User.ID.String(), dm, added, removed)
+				displayName := memberDisplayName(member)
+				sendLogMessages(client, logsChannelID, guildID.String(), displayName, dm, added, removed)
 			}
 		}
 
@@ -101,14 +102,12 @@ func handleMemberRoleChange(client *bot.Client, guildID snowflake.ID, member dis
 func sendLogMessages(
 	client *bot.Client,
 	logsChannelID snowflake.ID,
-	guildID, userID string,
+	guildID, displayName string,
 	dm models.DutyManager,
 	added, removed []snowflake.ID,
 ) {
-	send := func(e discord.Embed) {
-		if _, err := client.Rest.CreateMessage(logsChannelID, discord.MessageCreate{
-			Embeds: []discord.Embed{e},
-		}); err != nil {
+	send := func(comps []discord.LayoutComponent) {
+		if _, err := client.Rest.CreateMessage(logsChannelID, discord.NewMessageCreateV2(comps...)); err != nil {
 			logger.Error("Error sending log embed", "error", err)
 		}
 	}
@@ -116,24 +115,24 @@ func sendLogMessages(
 	for _, roleID := range added {
 		roleIDStr := roleID.String()
 		if dm.DutyRoleID != nil && *dm.DutyRoleID == roleIDStr {
-			send(BuildDutyUpdateEmbed(userID, true))
-			trackDuty(guildID, userID)
+			send(BuildDutyUpdateComponents(displayName, true))
+			trackDuty(guildID, displayName)
 		} else if dm.OnCallRoleID != nil && *dm.OnCallRoleID == roleIDStr {
-			send(BuildOnCallUpdateEmbed(userID, true))
-			trackOnCall(guildID, userID)
+			send(BuildOnCallUpdateComponents(displayName, true))
+			trackOnCall(guildID, displayName)
 		} else if dm.OffRadioRoleID != nil && *dm.OffRadioRoleID == roleIDStr {
-			send(BuildOffRadioUpdateEmbed(userID, true))
-			trackOffRadio(guildID, userID)
+			send(BuildOffRadioUpdateComponents(displayName, true))
+			trackOffRadio(guildID, displayName)
 		}
 	}
 	for _, roleID := range removed {
 		roleIDStr := roleID.String()
 		if dm.DutyRoleID != nil && *dm.DutyRoleID == roleIDStr {
-			send(BuildDutyUpdateEmbed(userID, false))
+			send(BuildDutyUpdateComponents(displayName, false))
 		} else if dm.OnCallRoleID != nil && *dm.OnCallRoleID == roleIDStr {
-			send(BuildOnCallUpdateEmbed(userID, false))
+			send(BuildOnCallUpdateComponents(displayName, false))
 		} else if dm.OffRadioRoleID != nil && *dm.OffRadioRoleID == roleIDStr {
-			send(BuildOffRadioUpdateEmbed(userID, false))
+			send(BuildOffRadioUpdateComponents(displayName, false))
 		}
 	}
 }
@@ -183,7 +182,7 @@ func performEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.Duty
 
 	setGuildCounts(guildID.String(), len(onDuty), len(offRadio))
 
-	embed, row := BuildDutyEmbed(onDuty, onCall, offRadio)
+	components := BuildDutyComponents(onDuty, onCall, offRadio)
 	chanID, err := snowflake.Parse(dm.ChannelID)
 	if err != nil {
 		logger.Error("Invalid channel ID in DutyManager", "channelID", dm.ChannelID, "error", err)
@@ -194,12 +193,7 @@ func performEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.Duty
 		logger.Error("Invalid message ID in DutyManager", "messageID", *dm.MessageID, "error", err)
 		return
 	}
-	embeds := []discord.Embed{embed}
-	components := []discord.LayoutComponent{row}
-	if _, err := client.Rest.UpdateMessage(chanID, msgSnowflake, discord.MessageUpdate{
-		Embeds:     &embeds,
-		Components: &components,
-	}); err != nil {
+	if _, err := client.Rest.UpdateMessage(chanID, msgSnowflake, discord.NewMessageUpdateV2(components...)); err != nil {
 		logger.Error("Error editing duty message", "error", err)
 	}
 

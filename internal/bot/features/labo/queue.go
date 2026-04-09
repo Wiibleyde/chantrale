@@ -105,13 +105,8 @@ func (q *LaboQueue) CancelByMessageID(messageID snowflake.ID) (bool, *LaboEntry)
 }
 
 func notifyCompletion(client *bot.Client, entry *LaboEntry) {
-	embed := BuildLaboResultEmbed(entry)
-	emptyComponents := []discord.LayoutComponent{}
-
-	if _, err := client.Rest.UpdateMessage(entry.ChannelID, entry.MessageID, discord.MessageUpdate{
-		Embeds:     &[]discord.Embed{embed},
-		Components: &emptyComponents,
-	}); err != nil {
+	resultComponents := BuildLaboResultComponents(entry)
+	if _, err := client.Rest.UpdateMessage(entry.ChannelID, entry.MessageID, discord.NewMessageUpdateV2(resultComponents...)); err != nil {
 		logger.Error("Error editing labo message", "error", err)
 	}
 

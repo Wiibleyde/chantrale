@@ -24,13 +24,8 @@ func HandleCancelButton(e *events.ComponentInteractionCreate) {
 		return
 	}
 
-	embed := BuildLaboCancelledEmbed(entry)
-	emptyComponents := []discord.LayoutComponent{}
-
-	if _, err := e.Client().Rest.UpdateMessage(e.Channel().ID(), messageID, discord.MessageUpdate{
-		Embeds:     &[]discord.Embed{embed},
-		Components: &emptyComponents,
-	}); err != nil {
+	cancelComponents := BuildLaboCancelledComponents(entry)
+	if _, err := e.Client().Rest.UpdateMessage(e.Channel().ID(), messageID, discord.NewMessageUpdateV2(cancelComponents...)); err != nil {
 		logger.Error("Error editing labo message", "error", err)
 	}
 

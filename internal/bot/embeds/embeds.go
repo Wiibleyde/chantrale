@@ -1,6 +1,7 @@
 package embeds
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/disgoorg/disgo/discord"
@@ -22,4 +23,11 @@ func BaseEmbed() discord.Embed {
 			IconURL: avatarURL,
 		},
 	}
+}
+
+// NewContainerV2 creates a Container with accent color and a consistent footer text display.
+func NewContainerV2(accentColor int, components ...discord.ContainerSubComponent) discord.ContainerComponent {
+	footer := discord.NewTextDisplay(fmt.Sprintf("-# Chantrale – LSMS  •  <t:%d:f>", time.Now().Unix()))
+	components = append(components, discord.NewSmallSeparator(), footer)
+	return discord.NewContainer(components...).WithAccentColor(accentColor)
 }

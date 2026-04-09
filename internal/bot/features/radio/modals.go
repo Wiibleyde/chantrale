@@ -35,16 +35,11 @@ func HandleRadioAddModal(e *events.ModalSubmitInteractionCreate) {
 		return
 	}
 
-	radios := ParseRadiosFromEmbed(msg.Embeds)
+	radios := ParseRadiosFromComponents(msg.Components)
 	radios = append(radios, RadioEntry{Name: name, Frequency: frequency})
 
-	embed := BuildRadioEmbed(radios)
 	components := BuildRadioComponents(radios)
-	embeds := []discord.Embed{embed}
-	if _, err := e.Client().Rest.UpdateMessage(chanID, msgID, discord.MessageUpdate{
-		Embeds:     &embeds,
-		Components: &components,
-	}); err != nil {
+	if _, err := e.Client().Rest.UpdateMessage(chanID, msgID, discord.NewMessageUpdateV2(components...)); err != nil {
 		logger.Error("Error editing radio message", "error", err)
 		respondEphemeral(e, "Erreur lors de la modification du message.")
 		return
@@ -85,7 +80,7 @@ func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 		return
 	}
 
-	radios := ParseRadiosFromEmbed(msg.Embeds)
+	radios := ParseRadiosFromComponents(msg.Components)
 	for idx, r := range radios {
 		if r.Name == originalName {
 			radios[idx] = RadioEntry{Name: newName, Frequency: newFreq}
@@ -93,13 +88,8 @@ func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 		}
 	}
 
-	embed := BuildRadioEmbed(radios)
 	components := BuildRadioComponents(radios)
-	embeds := []discord.Embed{embed}
-	if _, err := e.Client().Rest.UpdateMessage(chanID, msgID, discord.MessageUpdate{
-		Embeds:     &embeds,
-		Components: &components,
-	}); err != nil {
+	if _, err := e.Client().Rest.UpdateMessage(chanID, msgID, discord.NewMessageUpdateV2(components...)); err != nil {
 		logger.Error("Error editing radio message", "error", err)
 		respondEphemeral(e, "Erreur lors de la modification du message.")
 		return

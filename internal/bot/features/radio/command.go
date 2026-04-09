@@ -22,14 +22,10 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 		return
 	}
 
-	embed := BuildRadioEmbed(nil)
 	components := BuildRadioComponents(nil)
 
 	channelID := e.Channel().ID()
-	if _, err := e.Client().Rest.CreateMessage(channelID, discord.MessageCreate{
-		Embeds:     []discord.Embed{embed},
-		Components: components,
-	}); err != nil {
+	if _, err := e.Client().Rest.CreateMessage(channelID, discord.NewMessageCreateV2(components...)); err != nil {
 		logger.Error("Error sending radio message", "error", err)
 		respondEphemeral(e, "Erreur lors de l'envoi du message.")
 		return

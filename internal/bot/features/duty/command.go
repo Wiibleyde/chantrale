@@ -108,13 +108,10 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 	onCall := membersWithRole(members, onCallRole.ID)
 	offRadio := membersWithRole(members, offRadioRole.ID)
 
-	embed, row := BuildDutyEmbed(onDuty, onCall, offRadio)
+	components := BuildDutyComponents(onDuty, onCall, offRadio)
 
 	channelID := e.Channel().ID()
-	msg, err := client.Rest.CreateMessage(channelID, discord.MessageCreate{
-		Embeds:     []discord.Embed{embed},
-		Components: []discord.LayoutComponent{row},
-	})
+	msg, err := client.Rest.CreateMessage(channelID, discord.NewMessageCreateV2(components...))
 	if err != nil {
 		logger.Error("Error sending duty message", "error", err)
 		respondEphemeral(e, "Erreur lors de l'envoi du message.")
@@ -183,12 +180,19 @@ func handleRemove(e *events.ApplicationCommandInteractionCreate) {
 	respondEphemeral(e, "Gestionnaire de service supprimé avec succès.")
 }
 
+func memberDisplayName(m discord.Member) string {
+	if m.Nick != nil {
+		return *m.Nick
+	}
+	return m.User.Username
+}
+
 func membersWithRole(members []discord.Member, roleID snowflake.ID) []string {
 	var result []string
 	for _, m := range members {
 		for _, r := range m.RoleIDs {
 			if r == roleID {
-				result = append(result, m.User.ID.String())
+				result = append(result, memberDisplayName(m))
 				break
 			}
 		}

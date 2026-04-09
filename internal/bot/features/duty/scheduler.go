@@ -53,10 +53,8 @@ func sendSummaryToAll(client *bot.Client, stripRoles bool) {
 		if dm.LogsChannelID != nil {
 			logsChannelID, err := snowflake.Parse(*dm.LogsChannelID)
 			if err == nil {
-				embed := BuildSummaryEmbed(botStartTime, time.Now(), onDuty, onCall, offRadio)
-				if _, err := client.Rest.CreateMessage(logsChannelID, discord.MessageCreate{
-					Embeds: []discord.Embed{embed},
-				}); err != nil {
+				embed := BuildSummaryComponents(botStartTime, time.Now(), onDuty, onCall, offRadio)
+				if _, err := client.Rest.CreateMessage(logsChannelID, discord.NewMessageCreateV2(embed...)); err != nil {
 					logger.Error("Error sending duty summary", "guild", dm.GuildID, "error", err)
 				}
 			}
