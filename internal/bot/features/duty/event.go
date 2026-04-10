@@ -59,17 +59,29 @@ func HandleGuildMemberUpdate(e *events.GuildMemberUpdate) {
 
 func handleMemberRoleChange(client *bot.Client, guildID snowflake.ID, member discord.Member, prevRoles []snowflake.ID) {
 	newRoles := member.RoleIDs
+
+	var dms []models.DutyManager
+	if err := database.DB.Where("guild_id = ?", guildID.String()).Find(&dms).Error; err != nil {
+		logger.Error("Error fetching DutyManagers", "error", err)
+		return
+	}
+
+	// No cached previous state — we cannot determine which roles were removed.
+	// Refresh all embeds in the guild so the display stays accurate.
+	if len(prevRoles) == 0 {
+		for _, dm := range dms {
+			if dm.MessageID != nil {
+				scheduleEmbedUpdate(client, guildID, dm)
+			}
+		}
+		return
+	}
+
 	added := diffRoles(prevRoles, newRoles)
 	removed := diffRoles(newRoles, prevRoles)
 	changed := append(added, removed...)
 
 	if len(changed) == 0 {
-		return
-	}
-
-	var dms []models.DutyManager
-	if err := database.DB.Where("guild_id = ?", guildID.String()).Find(&dms).Error; err != nil {
-		logger.Error("Error fetching DutyManagers", "error", err)
 		return
 	}
 
