@@ -26,6 +26,13 @@ var Commands = []discord.ApplicationCommandCreate{
 				Description: "Initialiser le panneau des lits",
 			},
 			discord.ApplicationCommandOptionSubCommand{
+				Name:        "remove",
+				Description: "Supprimer le panneau des lits",
+				Options: []discord.ApplicationCommandOption{
+					discord.ApplicationCommandOptionString{Name: "messageid", Description: "ID du message du panneau", Required: true},
+				},
+			},
+			discord.ApplicationCommandOptionSubCommand{
 				Name:        "add",
 				Description: "Ajouter un patient à un lit",
 				Options: []discord.ApplicationCommandOption{
@@ -63,6 +70,8 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 	switch *data.SubCommandName {
 	case "init":
 		handleInit(e)
+	case "remove":
+		handleRemove(e)
 	case "add":
 		handleAdd(e)
 	}
@@ -168,6 +177,47 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 	}
 
 	respondEphemeral(e, fmt.Sprintf("Patient **%s** ajouté au lit **%s**.", patientName, bedLetter))
+}
+
+func handleRemove(e *events.ApplicationCommandInteractionCreate) {
+	member := e.Member()
+	if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
+		respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
+		return
+	}
+
+	data := e.SlashCommandInteractionData()
+	messageID := data.String("messageid")
+
+	guildID := *e.GuildID()
+
+	var bm models.BedManager
+	if err := database.DB.Where("guild_id = ? AND message_id = ?", guildID.String(), messageID).First(&bm).Error; err != nil {
+		respondEphemeral(e, "Panneau des lits introuvable.")
+		return
+	}
+
+	chanID, err := snowflake.Parse(bm.ChannelID)
+	if err == nil {
+		msgSnowflake, err2 := snowflake.Parse(messageID)
+		if err2 == nil {
+			if err3 := e.Client().Rest.DeleteMessage(chanID, msgSnowflake); err3 != nil {
+				logger.Error("Error deleting bed panel message", "error", err3)
+			}
+		}
+	}
+
+	if err := database.DB.Where("guild_id = ?", guildID.String()).Delete(&models.BedAssignment{}).Error; err != nil {
+		logger.Error("Error deleting bed assignments", "error", err)
+	}
+
+	if err := database.DB.Delete(&bm).Error; err != nil {
+		logger.Error("Error deleting BedManager", "error", err)
+		respondEphemeral(e, "Erreur lors de la suppression.")
+		return
+	}
+
+	respondEphemeral(e, "Panneau des lits supprimé avec succès.")
 }
 
 func updateBedPanel(client *bot.Client, bm models.BedManager) error {
