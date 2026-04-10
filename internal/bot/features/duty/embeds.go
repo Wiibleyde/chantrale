@@ -100,5 +100,10 @@ func formatList(names []string, empty string) string {
 	if len(names) == 0 {
 		return empty
 	}
-	return strings.Join(names, "\n")
+
+	var sb strings.Builder
+	for _, name := range names {
+		sb.WriteString("- " + name + "\n")
+	}
+	return sb.String()
 }

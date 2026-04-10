@@ -1,8 +1,6 @@
 package duty
 
 import (
-	"fmt"
-
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -194,7 +192,7 @@ func membersWithRole(members []discord.Member, roleID snowflake.ID) []string {
 	for _, m := range members {
 		for _, r := range m.RoleIDs {
 			if r == roleID {
-				result = append(result, fmt.Sprintf("<@%s>", m.User.ID))
+				result = append(result, memberDisplayName(m))
 				break
 			}
 		}

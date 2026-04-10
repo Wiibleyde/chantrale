@@ -100,13 +100,6 @@ func handleMemberRoleChange(client *bot.Client, guildID snowflake.ID, member dis
 			continue
 		}
 
-		if dm.LogsChannelID != nil {
-			if logsChannelID, err := snowflake.Parse(*dm.LogsChannelID); err == nil {
-				displayName := memberDisplayName(member)
-				sendLogMessages(client, logsChannelID, guildID.String(), displayName, dm, added, removed)
-			}
-		}
-
 		scheduleEmbedUpdate(client, guildID, dm)
 	}
 }
