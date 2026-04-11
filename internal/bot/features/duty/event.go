@@ -25,7 +25,6 @@ var (
 	debounceMap = make(map[string]*debounceState)
 	debounceMu  sync.Mutex
 
-	// embedDebounceMap groups rapid role changes into a single embed update per message.
 	embedDebounceMap = make(map[string]*time.Timer)
 	embedDebounceMu  sync.Mutex
 )
@@ -142,7 +141,6 @@ func sendLogMessages(
 	}
 }
 
-// scheduleEmbedUpdate batches embed updates within a 500ms window to avoid spamming the API.
 func scheduleEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.DutyManager) {
 	key := *dm.MessageID
 
@@ -160,7 +158,6 @@ func scheduleEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.Dut
 	embedDebounceMu.Unlock()
 }
 
-// performEmbedUpdate fetches members at call time so the embed is never stale.
 func performEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.DutyManager) {
 	members, err := client.Rest.GetMembers(guildID, 1000, 0)
 	if err != nil {

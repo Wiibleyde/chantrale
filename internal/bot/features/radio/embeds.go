@@ -14,8 +14,6 @@ type RadioEntry struct {
 	Frequency string
 }
 
-// BuildRadioComponents returns a Components V2 layout for the radio manager.
-// Each radio is a Section with name+frequency text and an edit button accessory.
 func BuildRadioComponents(radios []RadioEntry) []discord.LayoutComponent {
 	var subs []discord.ContainerSubComponent
 
@@ -48,8 +46,6 @@ func BuildRadioComponents(radios []RadioEntry) []discord.LayoutComponent {
 	return []discord.LayoutComponent{embeds.NewContainerV2(0x0099FF, subs...)}
 }
 
-// ParseRadiosFromComponents reads radio entries from a Components V2 message.
-// It finds Sections whose button accessory CustomID starts with "lsmsRadioEdit--".
 func ParseRadiosFromComponents(components []discord.LayoutComponent) []RadioEntry {
 	var radios []RadioEntry
 	for _, layout := range components {

@@ -65,7 +65,6 @@ func truncateLines(dc *gg.Context, text string, maxWidth float64, maxLines int) 
 		return strings.Join(lines, "\n")
 	}
 
-	// Need to truncate — fit "..." into the last allowed line
 	ellipsis := "..."
 	last := lines[maxLines-1]
 	for last != "" {
@@ -129,7 +128,6 @@ func GenerateBedImage(assignments []models.BedAssignment) ([]byte, error) {
 		cx := bx + bw/2
 		cy := by + bh/2
 
-		// Status indicator dots (before rotation, positioned in bed space)
 		if assignment.UnderArrest {
 			dc.SetColor(color.NRGBA{R: 220, G: 30, B: 30, A: 255})
 			dc.DrawCircle(bx+dotRadius+2, by+dotRadius+2, dotRadius)
@@ -141,13 +139,11 @@ func GenerateBedImage(assignments []models.BedAssignment) ([]byte, error) {
 			dc.Fill()
 		}
 
-		// Draw text rotated 90° counter-clockwise
 		dc.Push()
 		dc.RotateAbout(textRotation, cx, cy)
 
 		displayName := truncateLines(dc, assignment.Name, bh-8, 3)
 
-		// Black stroke/border (4 offsets)
 		dc.SetColor(color.Black)
 		for _, off := range [][2]float64{{-strokeOffset, 0}, {strokeOffset, 0}, {0, -strokeOffset}, {0, strokeOffset}} {
 			dc.DrawStringWrapped(displayName, cx+off[0], cy+off[1], 0.5, 0.5, bh-8, 1.2, gg.AlignCenter)
