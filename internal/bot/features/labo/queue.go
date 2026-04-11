@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
@@ -13,6 +14,7 @@ import (
 )
 
 type LaboEntry struct {
+	GuildID   string
 	ChannelID snowflake.ID
 	MessageID snowflake.ID
 	UserID    snowflake.ID
@@ -105,6 +107,13 @@ func (q *LaboQueue) CancelByMessageID(messageID snowflake.ID) (bool, *LaboEntry)
 }
 
 func notifyCompletion(client *bot.Client, entry *LaboEntry) {
+	stats.Record(entry.GuildID, entry.UserID.String(), "labo.test_complete", map[string]any{
+		"test_type":        entry.Type,
+		"patient_name":     entry.Name,
+		"result":           entry.Result,
+		"duration_minutes": entry.Time,
+	})
+
 	resultComponents := BuildLaboResultComponents(entry)
 	if _, err := client.Rest.UpdateMessage(entry.ChannelID, entry.MessageID, discord.NewMessageUpdateV2(resultComponents...)); err != nil {
 		logger.Error("Error editing labo message", "error", err)

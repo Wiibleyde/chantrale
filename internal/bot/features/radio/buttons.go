@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -137,6 +138,18 @@ func HandleRadioRemoveSelect(e *events.ComponentInteractionCreate) {
 		respondEphemeral(e, "Erreur lors de la modification du message.")
 		return
 	}
+
+	guildID := ""
+	if g := e.GuildID(); g != nil {
+		guildID = g.String()
+	}
+	userID := ""
+	if m := e.Member(); m != nil {
+		userID = m.User.ID.String()
+	}
+	stats.Record(guildID, userID, "radio.remove", map[string]any{
+		"name": selectedName,
+	})
 
 	respondEphemeral(e, "Radio supprimée avec succès.")
 }

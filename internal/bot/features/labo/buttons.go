@@ -1,7 +1,10 @@
 package labo
 
 import (
+	"time"
+
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -28,6 +31,12 @@ func HandleCancelButton(e *events.ComponentInteractionCreate) {
 	if _, err := e.Client().Rest.UpdateMessage(e.Channel().ID(), messageID, discord.NewMessageUpdateV2(cancelComponents...)); err != nil {
 		logger.Error("Error editing labo message", "error", err)
 	}
+
+	stats.Record(entry.GuildID, member.User.ID.String(), "labo.test_cancel", map[string]any{
+		"test_type":       entry.Type,
+		"patient_name":    entry.Name,
+		"elapsed_seconds": int(time.Since(entry.StartTime).Seconds()),
+	})
 
 	respondEphemeral(e, "Analyse annulée avec succès.")
 }

@@ -8,6 +8,7 @@ import (
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
@@ -122,6 +123,10 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 		return
 	}
 
+	stats.Record(guildID.String(), e.Member().User.ID.String(), "bed.panel_init", map[string]any{
+		"channel_id": channelID.String(),
+	})
+
 	respondEphemeral(e, "Panneau des lits initialisé avec succès.")
 }
 
@@ -176,6 +181,13 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 		return
 	}
 
+	stats.Record(guildID.String(), e.Member().User.ID.String(), "bed.assign", map[string]any{
+		"bed_letter":    bedLetter,
+		"patient_name":  patientName,
+		"under_arrest":  underArrest,
+		"death":         death,
+	})
+
 	respondEphemeral(e, fmt.Sprintf("Patient **%s** ajouté au lit **%s**.", patientName, bedLetter))
 }
 
@@ -216,6 +228,10 @@ func handleRemove(e *events.ApplicationCommandInteractionCreate) {
 		respondEphemeral(e, "Erreur lors de la suppression.")
 		return
 	}
+
+	stats.Record(guildID.String(), member.User.ID.String(), "bed.panel_remove", map[string]any{
+		"channel_id": bm.ChannelID,
+	})
 
 	respondEphemeral(e, "Panneau des lits supprimé avec succès.")
 }

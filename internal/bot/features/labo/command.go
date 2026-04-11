@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -138,6 +139,7 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 
 	channelID := e.Channel().ID()
 	entry := &LaboEntry{
+		GuildID:   e.GuildID().String(),
 		ChannelID: channelID,
 		UserID:    member.User.ID,
 		StartTime: time.Now(),
@@ -163,6 +165,14 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 
 	entry.MessageID = msg.ID
 	Queue.Add(entry)
+
+	_, resultPreset := data.OptString("resultat")
+	stats.Record(e.GuildID().String(), member.User.ID.String(), "labo.test_start", map[string]any{
+		"test_type":        analyseType,
+		"patient_name":     patientName,
+		"duration_minutes": analyseTime,
+		"result_preset":    resultPreset,
+	})
 
 	if _, err := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
 		Content: fmt.Sprintf("Analyse lancée. Résultat dans %d minute(s).", analyseTime),

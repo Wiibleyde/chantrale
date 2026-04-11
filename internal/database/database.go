@@ -6,6 +6,7 @@ import (
 	"LsmsBot/internal/config"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -23,9 +24,10 @@ func Init() {
 	if err != nil {
 		logger.Fatal("Failed to connect to database", "error", err)
 	}
-	if err := db.AutoMigrate(&models.DutyManager{}, &models.BedManager{}, &models.BedAssignment{}); err != nil {
+	if err := db.AutoMigrate(&models.DutyManager{}, &models.BedManager{}, &models.BedAssignment{}, &stats.StatEvent{}); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	}
 	DB = db
 	logger.Info("Database connected and migrated")
+	stats.Init(db)
 }

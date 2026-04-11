@@ -2,6 +2,7 @@ package radio
 
 import (
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -30,6 +31,10 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 		respondEphemeral(e, "Erreur lors de l'envoi du message.")
 		return
 	}
+
+	stats.Record(e.GuildID().String(), member.User.ID.String(), "radio.setup", map[string]any{
+		"channel_id": channelID.String(),
+	})
 
 	respondEphemeral(e, "Gestionnaire de radios créé avec succès.")
 }

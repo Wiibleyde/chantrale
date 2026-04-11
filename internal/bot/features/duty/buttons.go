@@ -4,6 +4,7 @@ import (
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -125,6 +126,16 @@ func handleRoleToggle(e *events.ComponentInteractionCreate, roleType string) {
 	// may not have OldMember cached and would miss this change.
 	displayName := memberDisplayName(member.Member)
 	take := !hasRole
+
+	action := "duty.role_leave"
+	if take {
+		action = "duty.role_take"
+	}
+	stats.Record(guildID.String(), userID.String(), action, map[string]any{
+		"role_type":    roleType,
+		"display_name": displayName,
+	})
+
 	if dm.LogsChannelID != nil {
 		if logsChannelID, err := snowflake.Parse(*dm.LogsChannelID); err == nil {
 			var comps []discord.LayoutComponent

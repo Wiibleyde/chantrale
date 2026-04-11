@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -114,6 +115,13 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 			}
 		}
 	}
+
+	stats.Record(guildID.String(), member.User.ID.String(), "doctor.dossier_create", map[string]any{
+		"target_user_id":      user.ID.String(),
+		"target_display_name": displayName,
+		"forum_channel_id":    forumChannel.ID.String(),
+		"thread_id":           thread.ID().String(),
+	})
 
 	if _, err := client.Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
 		Content: fmt.Sprintf("Dossier de formation créé avec succès dans <#%s>.", thread.ID()),

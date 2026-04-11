@@ -4,6 +4,7 @@ import (
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -140,6 +141,14 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 		return
 	}
 
+	stats.Record(guildID.String(), member.User.ID.String(), "duty.setup", map[string]any{
+		"channel_id":      channelID.String(),
+		"duty_role_id":    dutyRoleID,
+		"oncall_role_id":  onCallRoleID,
+		"offradio_role_id": offRadioRoleID,
+		"logs_channel_id": logsChannelID,
+	})
+
 	respondEphemeral(e, "Gestionnaire de service créé avec succès.")
 }
 
@@ -176,6 +185,11 @@ func handleRemove(e *events.ApplicationCommandInteractionCreate) {
 		respondEphemeral(e, "Erreur lors de la suppression.")
 		return
 	}
+
+	stats.Record(guildID.String(), member.User.ID.String(), "duty.remove", map[string]any{
+		"channel_id": dm.ChannelID,
+		"message_id": messageID,
+	})
 
 	respondEphemeral(e, "Gestionnaire de service supprimé avec succès.")
 }

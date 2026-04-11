@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -45,6 +46,19 @@ func HandleRadioAddModal(e *events.ModalSubmitInteractionCreate) {
 		return
 	}
 
+	guildID := ""
+	if g := e.GuildID(); g != nil {
+		guildID = g.String()
+	}
+	userID := ""
+	if m := e.Member(); m != nil {
+		userID = m.User.ID.String()
+	}
+	stats.Record(guildID, userID, "radio.add", map[string]any{
+		"name":      name,
+		"frequency": frequency,
+	})
+
 	respondEphemeral(e, "Radio ajoutée avec succès.")
 }
 
@@ -81,8 +95,10 @@ func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 	}
 
 	radios := ParseRadiosFromComponents(msg.Components)
+	oldFreq := ""
 	for idx, r := range radios {
 		if r.Name == originalName {
+			oldFreq = r.Frequency
 			radios[idx] = RadioEntry{Name: newName, Frequency: newFreq}
 			break
 		}
@@ -94,6 +110,21 @@ func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 		respondEphemeral(e, "Erreur lors de la modification du message.")
 		return
 	}
+
+	guildID := ""
+	if g := e.GuildID(); g != nil {
+		guildID = g.String()
+	}
+	userID := ""
+	if m := e.Member(); m != nil {
+		userID = m.User.ID.String()
+	}
+	stats.Record(guildID, userID, "radio.edit", map[string]any{
+		"old_name":      originalName,
+		"new_name":      newName,
+		"old_frequency": oldFreq,
+		"new_frequency": newFreq,
+	})
 
 	respondEphemeral(e, "Radio modifiée avec succès.")
 }

@@ -6,6 +6,7 @@ import (
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
+	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
@@ -49,6 +50,17 @@ func sendSummaryToAll(client *bot.Client, stripRoles bool) {
 
 	for _, dm := range dms {
 		onDuty, onCall, offRadio := popHistory(dm.GuildID)
+
+		eventType := "duty.daily_reset"
+		if !stripRoles {
+			eventType = "duty.shutdown_summary"
+		}
+		stats.Record(dm.GuildID, "", eventType, map[string]any{
+			"on_duty_users":   onDuty,
+			"on_call_users":   onCall,
+			"off_radio_users": offRadio,
+			"session_start":   botStartTime.Format(time.RFC3339),
+		})
 
 		if dm.LogsChannelID != nil {
 			logsChannelID, err := snowflake.Parse(*dm.LogsChannelID)
