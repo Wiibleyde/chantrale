@@ -24,6 +24,39 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
+func UndeployGlobalCommands() {
+	cfg := config.Load()
+
+	client, err := disgo.New(cfg.DiscordToken,
+		bot.WithGatewayConfigOpts(
+			gateway.WithIntents(gateway.IntentGuilds),
+		),
+	)
+	if err != nil {
+		logger.Fatal("Erreur lors de la création du client Discord", "error", err)
+	}
+
+	done := make(chan struct{})
+
+	client.AddEventListeners(bot.NewListenerFunc(func(e *events.Ready) {
+		defer close(done)
+		if _, err := e.Client().Rest.SetGlobalCommands(e.Application.ID, []discord.ApplicationCommandCreate{}); err != nil {
+			logger.Error("Impossible de supprimer les commandes globales", "error", err)
+		} else {
+			logger.Info("Commandes globales supprimées")
+		}
+	}))
+
+	ctx := context.Background()
+	if err := client.OpenGateway(ctx); err != nil {
+		logger.Fatal("Erreur lors de l'ouverture de la connexion", "error", err)
+	}
+	defer client.Close(ctx)
+
+	<-done
+	logger.Info("Terminé")
+}
+
 func Run() {
 	cfg := config.Load()
 
