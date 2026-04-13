@@ -18,7 +18,7 @@ const (
 	baseImagePath = "assets/beds.png"
 	fontPath      = "assets/fonts/Montserrat-Bold.ttf"
 	scale         = 1
-	fontSize      = 30
+	fontSize      = 45
 	textRotation  = -math.Pi / 2 // 90° counter-clockwise
 	strokeOffset  = 2
 	dotRadius     = 12
@@ -129,7 +129,7 @@ func GenerateBedImage(assignments []models.BedAssignment) ([]byte, error) {
 		cy := by + bh/2
 
 		if assignment.UnderArrest {
-			dc.SetColor(color.NRGBA{R: 220, G: 30, B: 30, A: 255})
+			dc.SetColor(color.NRGBA{R: 13, G: 0, B: 172, A: 255})
 			dc.DrawCircle(bx+dotRadius+2, by+dotRadius+2, dotRadius)
 			dc.Fill()
 		}
