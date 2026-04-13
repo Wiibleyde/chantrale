@@ -1,10 +1,15 @@
 package router
 
 import (
+	"fmt"
 	"strings"
 
+	"LsmsBot/internal/logger"
+
 	"github.com/disgoorg/disgo/bot"
+	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/snowflake/v2"
 )
 
 type CommandHandler func(e *events.ApplicationCommandInteractionCreate)
@@ -42,13 +47,25 @@ func (r *Router) OnModal(prefix string, h ModalHandler) {
 func (r *Router) Attach(client *bot.Client) {
 	client.AddEventListeners(
 		bot.NewListenerFunc(func(e *events.ApplicationCommandInteractionCreate) {
-			name := e.SlashCommandInteractionData().CommandName()
+			data := e.SlashCommandInteractionData()
+			logger.Event("Command interaction",
+				"path", data.CommandPath(),
+				"user", e.User().ID.String(),
+				"guild", formatGuildID(e.GuildID()),
+				"args", formatOptions(data.Options),
+			)
+			name := data.CommandName()
 			if h, ok := r.commands[name]; ok {
 				h(e)
 			}
 		}),
 		bot.NewListenerFunc(func(e *events.ComponentInteractionCreate) {
 			id := e.Data.CustomID()
+			logger.Event("Component interaction",
+				"id", id,
+				"user", e.User().ID.String(),
+				"guild", formatGuildID(e.GuildID()),
+			)
 			if h, ok := r.buttons[id]; ok {
 				h(e)
 				return
@@ -70,4 +87,22 @@ func (r *Router) Attach(client *bot.Client) {
 			}
 		}),
 	)
+}
+
+func formatGuildID(id *snowflake.ID) string {
+	if id == nil {
+		return "DM"
+	}
+	return id.String()
+}
+
+func formatOptions(opts map[string]discord.SlashCommandOption) string {
+	if len(opts) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(opts))
+	for name, opt := range opts {
+		parts = append(parts, fmt.Sprintf("%s=%s", name, string(opt.Value)))
+	}
+	return strings.Join(parts, " ")
 }

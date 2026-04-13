@@ -18,8 +18,12 @@ const (
 	colorYellow = "\033[33m"
 	colorRed    = "\033[31m"
 	colorBlue   = "\033[34m"
+	colorCyan   = "\033[36m"
 	colorBold   = "\033[1m"
 )
+
+// LevelEvent is a custom log level for incoming Discord interactions (commands, buttons).
+const LevelEvent = slog.Level(slog.LevelInfo + 1)
 
 type prettyHandler struct {
 	mu  sync.Mutex
@@ -44,6 +48,8 @@ func (h *prettyHandler) Handle(_ context.Context, r slog.Record) error {
 		fmt.Fprintf(&buf, "%sDEBUG%s", colorBlue, colorReset)
 	case slog.LevelInfo:
 		fmt.Fprintf(&buf, "%s INFO%s", colorGreen, colorReset)
+	case LevelEvent:
+		fmt.Fprintf(&buf, "%sEVENT%s", colorCyan, colorReset)
 	case slog.LevelWarn:
 		fmt.Fprintf(&buf, "%s WARN%s", colorYellow, colorReset)
 	case slog.LevelError:
@@ -82,6 +88,7 @@ func init() {
 
 func Debug(msg string, args ...any) { l.Debug(msg, args...) }
 func Info(msg string, args ...any)  { l.Info(msg, args...) }
+func Event(msg string, args ...any) { l.Log(context.Background(), LevelEvent, msg, args...) }
 func Warn(msg string, args ...any)  { l.Warn(msg, args...) }
 func Error(msg string, args ...any) { l.Error(msg, args...) }
 
