@@ -17,11 +17,11 @@ import (
 const (
 	baseImagePath = "assets/beds.png"
 	fontPath      = "assets/fonts/Montserrat-Bold.ttf"
-	scale         = 3
-	fontSize      = 11 * scale
+	scale         = 1
+	fontSize      = 30
 	textRotation  = -math.Pi / 2 // 90° counter-clockwise
 	strokeOffset  = 2
-	dotRadius     = 4 * scale
+	dotRadius     = 12
 )
 
 type BedConfig struct {
@@ -33,12 +33,12 @@ type BedConfig struct {
 }
 
 var BedConfigs = []BedConfig{
-	{Letter: "A", MinX: 494, MinY: 61, MaxX: 532, MaxY: 131},
-	{Letter: "B", MinX: 378, MinY: 61, MaxX: 416, MaxY: 131},
-	{Letter: "C", MinX: 37, MinY: 59, MaxX: 75, MaxY: 129},
-	{Letter: "D", MinX: 502, MinY: 173, MaxX: 540, MaxY: 243},
-	{Letter: "E", MinX: 436, MinY: 173, MaxX: 474, MaxY: 243},
-	{Letter: "F", MinX: 373, MinY: 173, MaxX: 411, MaxY: 243},
+	{Letter: "A", MinX: 104, MinY: 240, MaxX: 267, MaxY: 444},
+	{Letter: "B", MinX: 1248, MinY: 240, MaxX: 1411, MaxY: 444},
+	{Letter: "C", MinX: 1634, MinY: 240, MaxX: 1797, MaxY: 444},
+	{Letter: "D", MinX: 1230, MinY: 614, MaxX: 1393, MaxY: 818},
+	{Letter: "E", MinX: 1450, MinY: 614, MaxX: 1613, MaxY: 818},
+	{Letter: "F", MinX: 1670, MinY: 614, MaxX: 1833, MaxY: 818},
 }
 
 func truncateLines(dc *gg.Context, text string, maxWidth float64, maxLines int) string {
