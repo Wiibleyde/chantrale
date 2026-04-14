@@ -34,14 +34,25 @@ func StartScheduler(client *bot.Client) {
 
 func SendShutdownSummary(client *bot.Client) {
 	logger.Info("Sending duty shutdown summary...")
-	sendSummaryToAll(client, false)
+	sendSummaryToAll(client)
 }
 
 func runReset(client *bot.Client) {
-	sendSummaryToAll(client, true)
+	var dms []models.DutyManager
+	if err := database.DB.Find(&dms).Error; err != nil {
+		logger.Error("Error fetching DutyManagers for reset", "error", err)
+		return
+	}
+
+	for _, dm := range dms {
+		stripDutyRoles(client, dm)
+		setGuildCounts(dm.GuildID, 0, 0)
+	}
+
+	updateBotPresence(client)
 }
 
-func sendSummaryToAll(client *bot.Client, stripRoles bool) {
+func sendSummaryToAll(client *bot.Client) {
 	var dms []models.DutyManager
 	if err := database.DB.Find(&dms).Error; err != nil {
 		logger.Error("Error fetching DutyManagers for summary", "error", err)
@@ -51,11 +62,7 @@ func sendSummaryToAll(client *bot.Client, stripRoles bool) {
 	for _, dm := range dms {
 		onDuty, onCall, offRadio := popHistory(dm.GuildID)
 
-		eventType := "duty.daily_reset"
-		if !stripRoles {
-			eventType = "duty.shutdown_summary"
-		}
-		stats.Record(dm.GuildID, "", eventType, map[string]any{
+		stats.Record(dm.GuildID, "", "duty.shutdown_summary", map[string]any{
 			"on_duty_users":   onDuty,
 			"on_call_users":   onCall,
 			"off_radio_users": offRadio,
@@ -71,15 +78,6 @@ func sendSummaryToAll(client *bot.Client, stripRoles bool) {
 				}
 			}
 		}
-
-		if stripRoles {
-			stripDutyRoles(client, dm)
-			setGuildCounts(dm.GuildID, 0, 0)
-		}
-	}
-
-	if stripRoles {
-		updateBotPresence(client)
 	}
 }
 
