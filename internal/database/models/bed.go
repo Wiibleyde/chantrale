@@ -8,10 +8,11 @@ type BedManager struct {
 }
 
 type BedAssignment struct {
-	ID          uint   `gorm:"primaryKey;autoIncrement"`
-	GuildID     string `gorm:"index"`
+	ID          uint    `gorm:"primaryKey;autoIncrement"`
+	GuildID     string  `gorm:"index"`
 	BedLetter   string
 	Name        string
+	Description *string
 	UnderArrest bool
 	Death       bool
 }

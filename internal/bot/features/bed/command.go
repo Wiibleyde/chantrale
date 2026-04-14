@@ -44,6 +44,7 @@ var Commands = []discord.ApplicationCommandCreate{
 						Choices:     bedChoices(),
 					},
 					discord.ApplicationCommandOptionString{Name: "nom_prenom", Description: "Nom et prénom du patient", Required: true},
+					discord.ApplicationCommandOptionString{Name: "description", Description: "Description optionnelle (affichée au-dessus de l'image)", Required: false},
 					discord.ApplicationCommandOptionBool{Name: "garde_a_vue", Description: "Le patient est-il en garde à vue ?", Required: false},
 					discord.ApplicationCommandOptionBool{Name: "deces", Description: "Le patient est-il décédé ?", Required: false},
 				},
@@ -99,7 +100,7 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 		return
 	}
 
-	embed := BuildBedEmbed()
+	embed := BuildBedEmbed(nil)
 	channelID := e.Channel().ID()
 
 	msg, err := e.Client().Rest.CreateMessage(channelID, discord.MessageCreate{
@@ -151,6 +152,11 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 		death = v
 	}
 
+	var description *string
+	if v, ok := data.OptString("description"); ok && v != "" {
+		description = &v
+	}
+
 	var existingAssignments []models.BedAssignment
 	if err := database.DB.Where("guild_id = ? AND bed_letter = ?", guildID.String(), bedLetter).Limit(1).Find(&existingAssignments).Error; err != nil {
 		logger.Error("Error checking bed assignment", "error", err)
@@ -166,6 +172,7 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 		GuildID:     guildID.String(),
 		BedLetter:   bedLetter,
 		Name:        patientName,
+		Description: description,
 		UnderArrest: underArrest,
 		Death:       death,
 	}
@@ -182,10 +189,11 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 	}
 
 	stats.Record(guildID.String(), e.Member().User.ID.String(), "bed.assign", map[string]any{
-		"bed_letter":    bedLetter,
-		"patient_name":  patientName,
-		"under_arrest":  underArrest,
-		"death":         death,
+		"bed_letter":   bedLetter,
+		"patient_name": patientName,
+		"description":  description,
+		"under_arrest": underArrest,
+		"death":        death,
 	})
 
 	respondEphemeral(e, fmt.Sprintf("Patient **%s** ajouté au lit **%s**.", patientName, bedLetter))
@@ -247,7 +255,7 @@ func updateBedPanel(client *bot.Client, bm models.BedManager) error {
 		return err
 	}
 
-	embed := BuildBedEmbed()
+	embed := BuildBedEmbed(assignments)
 	components := buildBedButtons(assignments)
 	embeds := []discord.Embed{embed}
 	emptyAttachments := []discord.AttachmentUpdate{}
