@@ -1,6 +1,7 @@
 package duty
 
 import (
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -29,7 +30,7 @@ func handleRoleToggle(e *events.ComponentInteractionCreate, roleType string) {
 
 	var dm models.DutyManager
 	if err := database.DB.Where("guild_id = ? AND message_id = ?", guildID.String(), msgID).First(&dm).Error; err != nil {
-		respondEphemeral(e, "Gestionnaire de service introuvable.")
+		helpers.RespondEphemeral(e, "Gestionnaire de service introuvable.")
 		return
 	}
 
@@ -47,20 +48,20 @@ func handleRoleToggle(e *events.ComponentInteractionCreate, roleType string) {
 	}
 
 	if roleID == nil {
-		respondEphemeral(e, "Rôle non configuré.")
+		helpers.RespondEphemeral(e, "Rôle non configuré.")
 		return
 	}
 
 	member := e.Member()
 	if member == nil {
-		respondEphemeral(e, "Erreur: membre introuvable.")
+		helpers.RespondEphemeral(e, "Erreur: membre introuvable.")
 		return
 	}
 	userID := member.User.ID
 
 	roleSnowflake, err := snowflake.Parse(*roleID)
 	if err != nil {
-		respondEphemeral(e, "Erreur: rôle invalide.")
+		helpers.RespondEphemeral(e, "Erreur: rôle invalide.")
 		return
 	}
 
@@ -83,7 +84,7 @@ func handleRoleToggle(e *events.ComponentInteractionCreate, roleType string) {
 	if hasRole {
 		if err := client.Rest.RemoveMemberRole(guildID, userID, roleSnowflake); err != nil {
 			logger.Error("Error removing role", "error", err)
-			respondEphemeral(e, "Erreur lors de la modification du rôle.")
+			helpers.RespondEphemeral(e, "Erreur lors de la modification du rôle.")
 			return
 		}
 		switch roleType {
@@ -100,14 +101,14 @@ func handleRoleToggle(e *events.ComponentInteractionCreate, roleType string) {
 			if err == nil {
 				if err := client.Rest.RemoveMemberRole(guildID, userID, oppSnowflake); err != nil {
 					logger.Error("Error removing opposite role", "error", err)
-					respondEphemeral(e, "Erreur lors de la modification du rôle.")
+					helpers.RespondEphemeral(e, "Erreur lors de la modification du rôle.")
 					return
 				}
 			}
 		}
 		if err := client.Rest.AddMemberRole(guildID, userID, roleSnowflake); err != nil {
 			logger.Error("Error adding role", "error", err)
-			respondEphemeral(e, "Erreur lors de la modification du rôle.")
+			helpers.RespondEphemeral(e, "Erreur lors de la modification du rôle.")
 			return
 		}
 		switch roleType {
@@ -120,7 +121,7 @@ func handleRoleToggle(e *events.ComponentInteractionCreate, roleType string) {
 		}
 	}
 
-	respondEphemeral(e, msgContent)
+	helpers.RespondEphemeral(e, msgContent)
 
 	// Send log message and update the embed directly, since GuildMemberUpdate
 	// may not have OldMember cached and would miss this change.

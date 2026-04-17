@@ -3,8 +3,8 @@ package mortuary
 import (
 	"fmt"
 	"sort"
-	"strings"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -13,7 +13,6 @@ import (
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
-	"github.com/disgoorg/disgo/rest"
 	"github.com/disgoorg/snowflake/v2"
 )
 
@@ -83,11 +82,11 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 	var existing []models.MortuaryManager
 	if err := database.DB.Where("guild_id = ?", guildID.String()).Limit(1).Find(&existing).Error; err != nil {
 		logger.Error("Error checking mortuary manager", "error", err)
-		respondEphemeral(e, "Erreur lors de la vérification du panneau.")
+		helpers.RespondEphemeral(e, "Erreur lors de la vérification du panneau.")
 		return
 	}
 	if len(existing) > 0 {
-		respondEphemeral(e, "Un panneau de la morgue existe déjà dans ce serveur.")
+		helpers.RespondEphemeral(e, "Un panneau de la morgue existe déjà dans ce serveur.")
 		return
 	}
 
@@ -99,7 +98,7 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 	})
 	if err != nil {
 		logger.Error("Error sending mortuary panel message", "error", err)
-		respondEphemeral(e, "Erreur lors de l'envoi du panneau de la morgue.")
+		helpers.RespondEphemeral(e, "Erreur lors de l'envoi du panneau de la morgue.")
 		return
 	}
 
@@ -110,7 +109,7 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 	}
 	if err := database.DB.Create(&mm).Error; err != nil {
 		logger.Error("Error saving mortuary manager", "error", err)
-		respondEphemeral(e, "Erreur lors de la sauvegarde en base de données.")
+		helpers.RespondEphemeral(e, "Erreur lors de la sauvegarde en base de données.")
 		return
 	}
 
@@ -118,7 +117,7 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 		"channel_id": channelID.String(),
 	})
 
-	respondEphemeral(e, "Panneau de la morgue initialisé avec succès.")
+	helpers.RespondEphemeral(e, "Panneau de la morgue initialisé avec succès.")
 }
 
 func handleAdd(e *events.ApplicationCommandInteractionCreate) {
@@ -126,7 +125,7 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 
 	var mm models.MortuaryManager
 	if err := database.DB.Where("guild_id = ?", guildID.String()).First(&mm).Error; err != nil {
-		respondEphemeral(e, "Aucun panneau de la morgue trouvé. Utilisez `/mortuary init` d'abord.")
+		helpers.RespondEphemeral(e, "Aucun panneau de la morgue trouvé. Utilisez `/mortuary init` d'abord.")
 		return
 	}
 
@@ -142,11 +141,11 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 	var existingAssignments []models.MortuaryAssignment
 	if err := database.DB.Where("guild_id = ? AND locker_number = ?", guildID.String(), lockerNumber).Limit(1).Find(&existingAssignments).Error; err != nil {
 		logger.Error("Error checking mortuary assignment", "error", err)
-		respondEphemeral(e, "Erreur lors de la vérification du casier.")
+		helpers.RespondEphemeral(e, "Erreur lors de la vérification du casier.")
 		return
 	}
 	if len(existingAssignments) > 0 {
-		respondEphemeral(e, fmt.Sprintf("Le casier %d est déjà occupé par ||%s||.", lockerNumber, existingAssignments[0].Name))
+		helpers.RespondEphemeral(e, fmt.Sprintf("Le casier %d est déjà occupé par ||%s||.", lockerNumber, existingAssignments[0].Name))
 		return
 	}
 
@@ -158,13 +157,13 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 	}
 	if err := database.DB.Create(&assignment).Error; err != nil {
 		logger.Error("Error creating mortuary assignment", "error", err)
-		respondEphemeral(e, "Erreur lors de l'ajout du corps.")
+		helpers.RespondEphemeral(e, "Erreur lors de l'ajout du corps.")
 		return
 	}
 
 	if err := updateMortuaryPanel(e.Client(), mm); err != nil {
 		logger.Error("Error updating mortuary panel", "error", err)
-		respondEphemeral(e, "Corps ajouté mais erreur lors de la mise à jour du panneau.")
+		helpers.RespondEphemeral(e, "Corps ajouté mais erreur lors de la mise à jour du panneau.")
 		return
 	}
 
@@ -174,13 +173,11 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 		"comment":       comment,
 	})
 
-	respondEphemeral(e, fmt.Sprintf("Corps de **||%s||** ajouté au casier **%d**.", name, lockerNumber))
+	helpers.RespondEphemeral(e, fmt.Sprintf("Corps de **||%s||** ajouté au casier **%d**.", name, lockerNumber))
 }
 
 func handleRemove(e *events.ApplicationCommandInteractionCreate) {
-	member := e.Member()
-	if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
-		respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
+	if !helpers.RequirePermission(e, discord.PermissionManageChannels, "Vous n'avez pas la permission de gérer les canaux.") {
 		return
 	}
 
@@ -191,19 +188,11 @@ func handleRemove(e *events.ApplicationCommandInteractionCreate) {
 
 	var mm models.MortuaryManager
 	if err := database.DB.Where("guild_id = ? AND message_id = ?", guildID.String(), messageID).First(&mm).Error; err != nil {
-		respondEphemeral(e, "Panneau de la morgue introuvable.")
+		helpers.RespondEphemeral(e, "Panneau de la morgue introuvable.")
 		return
 	}
 
-	chanID, err := snowflake.Parse(mm.ChannelID)
-	if err == nil {
-		msgSnowflake, err2 := snowflake.Parse(messageID)
-		if err2 == nil {
-			if err3 := e.Client().Rest.DeleteMessage(chanID, msgSnowflake); err3 != nil {
-				logger.Error("Error deleting mortuary panel message", "error", err3)
-			}
-		}
-	}
+	helpers.DeleteMessageByIDs(e.Client(), mm.ChannelID, messageID)
 
 	if err := database.DB.Where("guild_id = ?", guildID.String()).Delete(&models.MortuaryAssignment{}).Error; err != nil {
 		logger.Error("Error deleting mortuary assignments", "error", err)
@@ -211,15 +200,15 @@ func handleRemove(e *events.ApplicationCommandInteractionCreate) {
 
 	if err := database.DB.Delete(&mm).Error; err != nil {
 		logger.Error("Error deleting MortuaryManager", "error", err)
-		respondEphemeral(e, "Erreur lors de la suppression.")
+		helpers.RespondEphemeral(e, "Erreur lors de la suppression.")
 		return
 	}
 
-	stats.Record(guildID.String(), member.User.ID.String(), "mortuary.panel_remove", map[string]any{
+	stats.Record(guildID.String(), e.Member().User.ID.String(), "mortuary.panel_remove", map[string]any{
 		"channel_id": mm.ChannelID,
 	})
 
-	respondEphemeral(e, "Panneau de la morgue supprimé avec succès.")
+	helpers.RespondEphemeral(e, "Panneau de la morgue supprimé avec succès.")
 }
 
 func updateMortuaryPanel(client *bot.Client, mm models.MortuaryManager) error {
@@ -271,32 +260,5 @@ func buildMortuaryButtons(assignments []models.MortuaryAssignment) []discord.Lay
 		})
 	}
 
-	var rows []discord.LayoutComponent
-	for i := 0; i < len(buttons); i += 5 {
-		end := i + 5
-		if end > len(buttons) {
-			end = len(buttons)
-		}
-		rows = append(rows, discord.ActionRowComponent{Components: buttons[i:end]})
-	}
-	return rows
-}
-
-func respondEphemeral(r interface {
-	CreateMessage(discord.MessageCreate, ...rest.RequestOpt) error
-}, content string) {
-	if err := r.CreateMessage(discord.MessageCreate{
-		Content: content,
-		Flags:   discord.MessageFlagEphemeral,
-	}); err != nil {
-		logger.Error("Error responding to interaction", "error", err)
-	}
-}
-
-func lockerFromCustomID(customID string) string {
-	parts := strings.SplitN(customID, "--", 2)
-	if len(parts) != 2 {
-		return ""
-	}
-	return parts[1]
+	return helpers.BuildActionRows(buttons, 5)
 }

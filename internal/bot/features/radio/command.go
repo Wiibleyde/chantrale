@@ -1,12 +1,12 @@
 package radio
 
 import (
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/logger"
 	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
-	"github.com/disgoorg/disgo/rest"
 )
 
 var Commands = []discord.ApplicationCommandCreate{
@@ -17,9 +17,7 @@ var Commands = []discord.ApplicationCommandCreate{
 }
 
 func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
-	member := e.Member()
-	if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
-		respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
+	if !helpers.RequirePermission(e, discord.PermissionManageChannels, "Vous n'avez pas la permission de gérer les canaux.") {
 		return
 	}
 
@@ -28,24 +26,13 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 	channelID := e.Channel().ID()
 	if _, err := e.Client().Rest.CreateMessage(channelID, discord.NewMessageCreateV2(components...)); err != nil {
 		logger.Error("Error sending radio message", "error", err)
-		respondEphemeral(e, "Erreur lors de l'envoi du message.")
+		helpers.RespondEphemeral(e, "Erreur lors de l'envoi du message.")
 		return
 	}
 
-	stats.Record(e.GuildID().String(), member.User.ID.String(), "radio.setup", map[string]any{
+	stats.Record(e.GuildID().String(), e.Member().User.ID.String(), "radio.setup", map[string]any{
 		"channel_id": channelID.String(),
 	})
 
-	respondEphemeral(e, "Gestionnaire de radios créé avec succès.")
-}
-
-func respondEphemeral(r interface {
-	CreateMessage(discord.MessageCreate, ...rest.RequestOpt) error
-}, content string) {
-	if err := r.CreateMessage(discord.MessageCreate{
-		Content: content,
-		Flags:   discord.MessageFlagEphemeral,
-	}); err != nil {
-		logger.Error("Error responding to interaction", "error", err)
-	}
+	helpers.RespondEphemeral(e, "Gestionnaire de radios créé avec succès.")
 }

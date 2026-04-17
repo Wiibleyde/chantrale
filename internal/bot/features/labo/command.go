@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/logger"
 	"LsmsBot/internal/stats"
 
@@ -154,12 +155,7 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 	msg, err := e.Client().Rest.CreateMessage(channelID, discord.NewMessageCreateV2(waitComponents...))
 	if err != nil {
 		logger.Error("Error sending labo message", "error", err)
-		if _, err2 := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
-			Content: "Erreur lors de l'envoi du message d'analyse.",
-			Flags:   discord.MessageFlagEphemeral,
-		}); err2 != nil {
-			logger.Error("Error creating followup", "error", err2)
-		}
+		helpers.RespondFollowupEphemeral(e.Client(), e.ApplicationID(), e.Token(), "Erreur lors de l'envoi du message d'analyse.")
 		return
 	}
 
@@ -174,12 +170,7 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 		"result_preset":    resultPreset,
 	})
 
-	if _, err := e.Client().Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
-		Content: fmt.Sprintf("Analyse lancée. Résultat dans %d minute(s).", analyseTime),
-		Flags:   discord.MessageFlagEphemeral,
-	}); err != nil {
-		logger.Error("Error creating followup", "error", err)
-	}
+	helpers.RespondFollowupEphemeral(e.Client(), e.ApplicationID(), e.Token(), fmt.Sprintf("Analyse lancée. Résultat dans %d minute(s).", analyseTime))
 }
 
 func defaultTime(subCmd string) int {

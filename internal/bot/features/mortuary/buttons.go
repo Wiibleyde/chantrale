@@ -3,6 +3,7 @@ package mortuary
 import (
 	"strconv"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -12,15 +13,15 @@ import (
 )
 
 func HandleRemoveLocker(e *events.ComponentInteractionCreate) {
-	lockerStr := lockerFromCustomID(e.Data.CustomID())
+	lockerStr := helpers.SuffixFromCustomID(e.Data.CustomID())
 	if lockerStr == "" {
-		respondEphemeral(e, "Identifiant de casier invalide.")
+		helpers.RespondEphemeral(e, "Identifiant de casier invalide.")
 		return
 	}
 
 	lockerNumber, err := strconv.Atoi(lockerStr)
 	if err != nil {
-		respondEphemeral(e, "Identifiant de casier invalide.")
+		helpers.RespondEphemeral(e, "Identifiant de casier invalide.")
 		return
 	}
 
@@ -28,20 +29,20 @@ func HandleRemoveLocker(e *events.ComponentInteractionCreate) {
 
 	var mm models.MortuaryManager
 	if err := database.DB.Where("guild_id = ?", guildID.String()).First(&mm).Error; err != nil {
-		respondEphemeral(e, "Aucun panneau de la morgue trouvé.")
+		helpers.RespondEphemeral(e, "Aucun panneau de la morgue trouvé.")
 		return
 	}
 
 	var assignment models.MortuaryAssignment
 	if err := database.DB.Where("guild_id = ? AND locker_number = ?", guildID.String(), lockerNumber).First(&assignment).Error; err != nil {
-		respondEphemeral(e, "Ce casier est déjà vide.")
+		helpers.RespondEphemeral(e, "Ce casier est déjà vide.")
 		return
 	}
 
 	result := database.DB.Delete(&assignment)
 	if result.Error != nil {
 		logger.Error("Error deleting mortuary assignment", "error", result.Error)
-		respondEphemeral(e, "Erreur lors de la suppression du corps.")
+		helpers.RespondEphemeral(e, "Erreur lors de la suppression du corps.")
 		return
 	}
 

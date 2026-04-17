@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"strings"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -14,7 +14,6 @@ import (
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
-	"github.com/disgoorg/disgo/rest"
 	"github.com/disgoorg/snowflake/v2"
 )
 
@@ -86,18 +85,18 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 	var existing []models.BedManager
 	if err := database.DB.Where("guild_id = ?", guildID.String()).Limit(1).Find(&existing).Error; err != nil {
 		logger.Error("Error checking bed manager", "error", err)
-		respondEphemeral(e, "Erreur lors de la vérification du panneau.")
+		helpers.RespondEphemeral(e, "Erreur lors de la vérification du panneau.")
 		return
 	}
 	if len(existing) > 0 {
-		respondEphemeral(e, "Un panneau des lits existe déjà dans ce serveur.")
+		helpers.RespondEphemeral(e, "Un panneau des lits existe déjà dans ce serveur.")
 		return
 	}
 
 	imgBytes, err := GenerateBedImage(nil)
 	if err != nil {
 		logger.Error("Error generating bed image", "error", err)
-		respondEphemeral(e, "Erreur lors de la génération de l'image des lits.")
+		helpers.RespondEphemeral(e, "Erreur lors de la génération de l'image des lits.")
 		return
 	}
 
@@ -110,7 +109,7 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 	})
 	if err != nil {
 		logger.Error("Error sending bed panel message", "error", err)
-		respondEphemeral(e, "Erreur lors de l'envoi du panneau des lits.")
+		helpers.RespondEphemeral(e, "Erreur lors de l'envoi du panneau des lits.")
 		return
 	}
 
@@ -121,7 +120,7 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 	}
 	if err := database.DB.Create(&bm).Error; err != nil {
 		logger.Error("Error saving bed manager", "error", err)
-		respondEphemeral(e, "Erreur lors de la sauvegarde en base de données.")
+		helpers.RespondEphemeral(e, "Erreur lors de la sauvegarde en base de données.")
 		return
 	}
 
@@ -129,7 +128,7 @@ func handleInit(e *events.ApplicationCommandInteractionCreate) {
 		"channel_id": channelID.String(),
 	})
 
-	respondEphemeral(e, "Panneau des lits initialisé avec succès.")
+	helpers.RespondEphemeral(e, "Panneau des lits initialisé avec succès.")
 }
 
 func handleAdd(e *events.ApplicationCommandInteractionCreate) {
@@ -137,7 +136,7 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 
 	var bm models.BedManager
 	if err := database.DB.Where("guild_id = ?", guildID.String()).First(&bm).Error; err != nil {
-		respondEphemeral(e, "Aucun panneau des lits trouvé. Utilisez `/beds init` d'abord.")
+		helpers.RespondEphemeral(e, "Aucun panneau des lits trouvé. Utilisez `/beds init` d'abord.")
 		return
 	}
 
@@ -161,11 +160,11 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 	var existingAssignments []models.BedAssignment
 	if err := database.DB.Where("guild_id = ? AND bed_letter = ?", guildID.String(), bedLetter).Limit(1).Find(&existingAssignments).Error; err != nil {
 		logger.Error("Error checking bed assignment", "error", err)
-		respondEphemeral(e, "Erreur lors de la vérification du lit.")
+		helpers.RespondEphemeral(e, "Erreur lors de la vérification du lit.")
 		return
 	}
 	if len(existingAssignments) > 0 {
-		respondEphemeral(e, fmt.Sprintf("Le lit %s est déjà occupé par %s.", bedLetter, existingAssignments[0].Name))
+		helpers.RespondEphemeral(e, fmt.Sprintf("Le lit %s est déjà occupé par %s.", bedLetter, existingAssignments[0].Name))
 		return
 	}
 
@@ -179,13 +178,13 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 	}
 	if err := database.DB.Create(&assignment).Error; err != nil {
 		logger.Error("Error creating bed assignment", "error", err)
-		respondEphemeral(e, "Erreur lors de l'ajout du patient.")
+		helpers.RespondEphemeral(e, "Erreur lors de l'ajout du patient.")
 		return
 	}
 
 	if err := updateBedPanel(e.Client(), bm); err != nil {
 		logger.Error("Error updating bed panel", "error", err)
-		respondEphemeral(e, "Patient ajouté mais erreur lors de la mise à jour du panneau.")
+		helpers.RespondEphemeral(e, "Patient ajouté mais erreur lors de la mise à jour du panneau.")
 		return
 	}
 
@@ -197,13 +196,11 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 		"death":        death,
 	})
 
-	respondEphemeral(e, fmt.Sprintf("Patient **%s** ajouté au lit **%s**.", patientName, bedLetter))
+	helpers.RespondEphemeral(e, fmt.Sprintf("Patient **%s** ajouté au lit **%s**.", patientName, bedLetter))
 }
 
 func handleRemove(e *events.ApplicationCommandInteractionCreate) {
-	member := e.Member()
-	if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
-		respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
+	if !helpers.RequirePermission(e, discord.PermissionManageChannels, "Vous n'avez pas la permission de gérer les canaux.") {
 		return
 	}
 
@@ -214,19 +211,11 @@ func handleRemove(e *events.ApplicationCommandInteractionCreate) {
 
 	var bm models.BedManager
 	if err := database.DB.Where("guild_id = ? AND message_id = ?", guildID.String(), messageID).First(&bm).Error; err != nil {
-		respondEphemeral(e, "Panneau des lits introuvable.")
+		helpers.RespondEphemeral(e, "Panneau des lits introuvable.")
 		return
 	}
 
-	chanID, err := snowflake.Parse(bm.ChannelID)
-	if err == nil {
-		msgSnowflake, err2 := snowflake.Parse(messageID)
-		if err2 == nil {
-			if err3 := e.Client().Rest.DeleteMessage(chanID, msgSnowflake); err3 != nil {
-				logger.Error("Error deleting bed panel message", "error", err3)
-			}
-		}
-	}
+	helpers.DeleteMessageByIDs(e.Client(), bm.ChannelID, messageID)
 
 	if err := database.DB.Where("guild_id = ?", guildID.String()).Delete(&models.BedAssignment{}).Error; err != nil {
 		logger.Error("Error deleting bed assignments", "error", err)
@@ -234,15 +223,15 @@ func handleRemove(e *events.ApplicationCommandInteractionCreate) {
 
 	if err := database.DB.Delete(&bm).Error; err != nil {
 		logger.Error("Error deleting BedManager", "error", err)
-		respondEphemeral(e, "Erreur lors de la suppression.")
+		helpers.RespondEphemeral(e, "Erreur lors de la suppression.")
 		return
 	}
 
-	stats.Record(guildID.String(), member.User.ID.String(), "bed.panel_remove", map[string]any{
+	stats.Record(guildID.String(), e.Member().User.ID.String(), "bed.panel_remove", map[string]any{
 		"channel_id": bm.ChannelID,
 	})
 
-	respondEphemeral(e, "Panneau des lits supprimé avec succès.")
+	helpers.RespondEphemeral(e, "Panneau des lits supprimé avec succès.")
 }
 
 func updateBedPanel(client *bot.Client, bm models.BedManager) error {
@@ -307,32 +296,5 @@ func buildBedButtons(assignments []models.BedAssignment) []discord.LayoutCompone
 		})
 	}
 
-	var rows []discord.LayoutComponent
-	for i := 0; i < len(buttons); i += 5 {
-		end := i + 5
-		if end > len(buttons) {
-			end = len(buttons)
-		}
-		rows = append(rows, discord.ActionRowComponent{Components: buttons[i:end]})
-	}
-	return rows
-}
-
-func respondEphemeral(r interface {
-	CreateMessage(discord.MessageCreate, ...rest.RequestOpt) error
-}, content string) {
-	if err := r.CreateMessage(discord.MessageCreate{
-		Content: content,
-		Flags:   discord.MessageFlagEphemeral,
-	}); err != nil {
-		logger.Error("Error responding to interaction", "error", err)
-	}
-}
-
-func bedLetterFromCustomID(customID string) string {
-	parts := strings.SplitN(customID, "--", 2)
-	if len(parts) != 2 {
-		return ""
-	}
-	return parts[1]
+	return helpers.BuildActionRows(buttons, 5)
 }
