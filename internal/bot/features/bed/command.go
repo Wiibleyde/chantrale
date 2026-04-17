@@ -279,10 +279,7 @@ func buildBedButtons(assignments []models.BedAssignment) []discord.LayoutCompone
 
 	var buttons []discord.InteractiveComponent
 	for _, a := range assignments {
-		label := fmt.Sprintf("Lit %s - %s", a.BedLetter, a.Name)
-		if len(label) > 80 {
-			label = label[:80]
-		}
+		label := fmt.Sprintf("Lit %s", a.BedLetter)
 
 		style := discord.ButtonStyleSecondary
 		if a.UnderArrest || a.Death {
