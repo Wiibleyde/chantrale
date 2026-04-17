@@ -3,12 +3,12 @@ package doctor
 import (
 	"fmt"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/logger"
 	"LsmsBot/internal/stats"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
-	"github.com/disgoorg/disgo/rest"
 )
 
 type Formation struct {
@@ -56,9 +56,7 @@ var Commands = []discord.ApplicationCommandCreate{
 }
 
 func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
-	member := e.Member()
-	if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
-		respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
+	if !helpers.RequirePermission(e, discord.PermissionManageChannels, "Vous n'avez pas la permission de gérer les canaux.") {
 		return
 	}
 
@@ -90,12 +88,7 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 	})
 	if err != nil {
 		logger.Error("Error creating forum thread", "error", err)
-		if _, err2 := client.Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
-			Content: "Erreur lors de la création du fil de discussion.",
-			Flags:   discord.MessageFlagEphemeral,
-		}); err2 != nil {
-			logger.Error("Error creating followup", "error", err2)
-		}
+		helpers.RespondFollowupEphemeral(client, e.ApplicationID(), e.Token(), "Erreur lors de la création du fil de discussion.")
 		return
 	}
 
@@ -116,28 +109,12 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 		}
 	}
 
-	stats.Record(guildID.String(), member.User.ID.String(), "doctor.dossier_create", map[string]any{
+	stats.Record(guildID.String(), e.Member().User.ID.String(), "doctor.dossier_create", map[string]any{
 		"target_user_id":      user.ID.String(),
 		"target_display_name": displayName,
 		"forum_channel_id":    forumChannel.ID.String(),
 		"thread_id":           thread.ID().String(),
 	})
 
-	if _, err := client.Rest.CreateFollowupMessage(e.ApplicationID(), e.Token(), discord.MessageCreate{
-		Content: fmt.Sprintf("Dossier de formation créé avec succès dans <#%s>.", thread.ID()),
-		Flags:   discord.MessageFlagEphemeral,
-	}); err != nil {
-		logger.Error("Error creating followup", "error", err)
-	}
-}
-
-func respondEphemeral(r interface {
-	CreateMessage(discord.MessageCreate, ...rest.RequestOpt) error
-}, content string) {
-	if err := r.CreateMessage(discord.MessageCreate{
-		Content: content,
-		Flags:   discord.MessageFlagEphemeral,
-	}); err != nil {
-		logger.Error("Error responding to interaction", "error", err)
-	}
+	helpers.RespondFollowupEphemeral(client, e.ApplicationID(), e.Token(), fmt.Sprintf("Dossier de formation créé avec succès dans <#%s>.", thread.ID()))
 }

@@ -1,6 +1,7 @@
 package bed
 
 import (
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -10,9 +11,9 @@ import (
 )
 
 func HandleRemoveBed(e *events.ComponentInteractionCreate) {
-	bedLetter := bedLetterFromCustomID(e.Data.CustomID())
+	bedLetter := helpers.SuffixFromCustomID(e.Data.CustomID())
 	if bedLetter == "" {
-		respondEphemeral(e, "Identifiant de lit invalide.")
+		helpers.RespondEphemeral(e, "Identifiant de lit invalide.")
 		return
 	}
 
@@ -20,20 +21,20 @@ func HandleRemoveBed(e *events.ComponentInteractionCreate) {
 
 	var bm models.BedManager
 	if err := database.DB.Where("guild_id = ?", guildID.String()).First(&bm).Error; err != nil {
-		respondEphemeral(e, "Aucun panneau des lits trouvé.")
+		helpers.RespondEphemeral(e, "Aucun panneau des lits trouvé.")
 		return
 	}
 
 	var assignment models.BedAssignment
 	if err := database.DB.Where("guild_id = ? AND bed_letter = ?", guildID.String(), bedLetter).First(&assignment).Error; err != nil {
-		respondEphemeral(e, "Ce lit est déjà vide.")
+		helpers.RespondEphemeral(e, "Ce lit est déjà vide.")
 		return
 	}
 
 	result := database.DB.Delete(&assignment)
 	if result.Error != nil {
 		logger.Error("Error deleting bed assignment", "error", result.Error)
-		respondEphemeral(e, "Erreur lors de la suppression du patient.")
+		helpers.RespondEphemeral(e, "Erreur lors de la suppression du patient.")
 		return
 	}
 

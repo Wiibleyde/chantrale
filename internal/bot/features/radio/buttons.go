@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"strings"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/logger"
 	"LsmsBot/internal/stats"
 
@@ -31,7 +32,7 @@ func HandleRadioRemove(e *events.ComponentInteractionCreate) {
 
 	radios := ParseRadiosFromComponents(e.Message.Components)
 	if len(radios) == 0 {
-		respondEphemeral(e, "Aucune radio à supprimer.")
+		helpers.RespondEphemeral(e, "Aucune radio à supprimer.")
 		return
 	}
 
@@ -60,14 +61,14 @@ func HandleRadioEdit(e *events.ComponentInteractionCreate) {
 	customID := e.Data.CustomID()
 	parts := strings.SplitN(customID, "--", 2)
 	if len(parts) < 2 {
-		respondEphemeral(e, "Erreur: identifiant invalide.")
+		helpers.RespondEphemeral(e, "Erreur: identifiant invalide.")
 		return
 	}
 
 	encodedName := parts[1]
 	nameBytes, err := base64.RawURLEncoding.DecodeString(encodedName)
 	if err != nil {
-		respondEphemeral(e, "Erreur: nom de radio invalide.")
+		helpers.RespondEphemeral(e, "Erreur: nom de radio invalide.")
 		return
 	}
 	radioName := string(nameBytes)
@@ -99,7 +100,7 @@ func HandleRadioRemoveSelect(e *events.ComponentInteractionCreate) {
 	customID := e.Data.CustomID()
 	parts := strings.SplitN(customID, "--", 3)
 	if len(parts) < 3 {
-		respondEphemeral(e, "Erreur: identifiant invalide.")
+		helpers.RespondEphemeral(e, "Erreur: identifiant invalide.")
 		return
 	}
 
@@ -109,7 +110,7 @@ func HandleRadioRemoveSelect(e *events.ComponentInteractionCreate) {
 	selectData := e.StringSelectMenuInteractionData()
 	values := selectData.Values
 	if len(values) == 0 {
-		respondEphemeral(e, "Aucune radio sélectionnée.")
+		helpers.RespondEphemeral(e, "Aucune radio sélectionnée.")
 		return
 	}
 	selectedName := values[0]
@@ -120,7 +121,7 @@ func HandleRadioRemoveSelect(e *events.ComponentInteractionCreate) {
 	msg, err := e.Client().Rest.GetMessage(chanID, msgID)
 	if err != nil {
 		logger.Error("Error fetching message", "error", err)
-		respondEphemeral(e, "Erreur lors de la récupération du message.")
+		helpers.RespondEphemeral(e, "Erreur lors de la récupération du message.")
 		return
 	}
 
@@ -135,7 +136,7 @@ func HandleRadioRemoveSelect(e *events.ComponentInteractionCreate) {
 	components := BuildRadioComponents(newRadios)
 	if _, err := e.Client().Rest.UpdateMessage(chanID, msgID, discord.NewMessageUpdateV2(components...)); err != nil {
 		logger.Error("Error editing radio message", "error", err)
-		respondEphemeral(e, "Erreur lors de la modification du message.")
+		helpers.RespondEphemeral(e, "Erreur lors de la modification du message.")
 		return
 	}
 
@@ -151,5 +152,5 @@ func HandleRadioRemoveSelect(e *events.ComponentInteractionCreate) {
 		"name": selectedName,
 	})
 
-	respondEphemeral(e, "Radio supprimée avec succès.")
+	helpers.RespondEphemeral(e, "Radio supprimée avec succès.")
 }

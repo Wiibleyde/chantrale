@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"strings"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/logger"
 	"LsmsBot/internal/stats"
 
@@ -16,7 +17,7 @@ func HandleRadioAddModal(e *events.ModalSubmitInteractionCreate) {
 	customID := e.Data.CustomID
 	parts := strings.SplitN(customID, "--", 3)
 	if len(parts) < 3 {
-		respondEphemeral(e, "Erreur: identifiant invalide.")
+		helpers.RespondEphemeral(e, "Erreur: identifiant invalide.")
 		return
 	}
 
@@ -32,7 +33,7 @@ func HandleRadioAddModal(e *events.ModalSubmitInteractionCreate) {
 	msg, err := e.Client().Rest.GetMessage(chanID, msgID)
 	if err != nil {
 		logger.Error("Error fetching message", "error", err)
-		respondEphemeral(e, "Erreur lors de la récupération du message.")
+		helpers.RespondEphemeral(e, "Erreur lors de la récupération du message.")
 		return
 	}
 
@@ -42,7 +43,7 @@ func HandleRadioAddModal(e *events.ModalSubmitInteractionCreate) {
 	components := BuildRadioComponents(radios)
 	if _, err := e.Client().Rest.UpdateMessage(chanID, msgID, discord.NewMessageUpdateV2(components...)); err != nil {
 		logger.Error("Error editing radio message", "error", err)
-		respondEphemeral(e, "Erreur lors de la modification du message.")
+		helpers.RespondEphemeral(e, "Erreur lors de la modification du message.")
 		return
 	}
 
@@ -59,14 +60,14 @@ func HandleRadioAddModal(e *events.ModalSubmitInteractionCreate) {
 		"frequency": frequency,
 	})
 
-	respondEphemeral(e, "Radio ajoutée avec succès.")
+	helpers.RespondEphemeral(e, "Radio ajoutée avec succès.")
 }
 
 func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 	customID := e.Data.CustomID
 	parts := strings.SplitN(customID, "--", 4)
 	if len(parts) < 4 {
-		respondEphemeral(e, "Erreur: identifiant invalide.")
+		helpers.RespondEphemeral(e, "Erreur: identifiant invalide.")
 		return
 	}
 
@@ -76,7 +77,7 @@ func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 
 	nameBytes, err := base64.RawURLEncoding.DecodeString(encodedName)
 	if err != nil {
-		respondEphemeral(e, "Erreur: nom de radio invalide.")
+		helpers.RespondEphemeral(e, "Erreur: nom de radio invalide.")
 		return
 	}
 	originalName := string(nameBytes)
@@ -90,7 +91,7 @@ func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 	msg, err := e.Client().Rest.GetMessage(chanID, msgID)
 	if err != nil {
 		logger.Error("Error fetching message", "error", err)
-		respondEphemeral(e, "Erreur lors de la récupération du message.")
+		helpers.RespondEphemeral(e, "Erreur lors de la récupération du message.")
 		return
 	}
 
@@ -107,7 +108,7 @@ func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 	components := BuildRadioComponents(radios)
 	if _, err := e.Client().Rest.UpdateMessage(chanID, msgID, discord.NewMessageUpdateV2(components...)); err != nil {
 		logger.Error("Error editing radio message", "error", err)
-		respondEphemeral(e, "Erreur lors de la modification du message.")
+		helpers.RespondEphemeral(e, "Erreur lors de la modification du message.")
 		return
 	}
 
@@ -126,5 +127,5 @@ func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 		"new_frequency": newFreq,
 	})
 
-	respondEphemeral(e, "Radio modifiée avec succès.")
+	helpers.RespondEphemeral(e, "Radio modifiée avec succès.")
 }

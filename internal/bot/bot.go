@@ -11,6 +11,7 @@ import (
 	"LsmsBot/internal/bot/features/doctor"
 	"LsmsBot/internal/bot/features/duty"
 	"LsmsBot/internal/bot/features/labo"
+	"LsmsBot/internal/bot/features/mortuary"
 	"LsmsBot/internal/bot/features/radio"
 	"LsmsBot/internal/bot/router"
 	"LsmsBot/internal/config"
@@ -79,6 +80,7 @@ func Run() {
 	doctor.Register(r)
 	labo.Register(r)
 	bed.Register(r)
+	mortuary.Register(r)
 	r.Attach(client)
 
 	allCommands := []discord.ApplicationCommandCreate{}
@@ -87,6 +89,7 @@ func Run() {
 	allCommands = append(allCommands, doctor.Commands...)
 	allCommands = append(allCommands, labo.Commands...)
 	allCommands = append(allCommands, bed.Commands...)
+	allCommands = append(allCommands, mortuary.Commands...)
 
 	client.AddEventListeners(bot.NewListenerFunc(func(e *events.Ready) {
 		logger.Info("Logged in", "user", e.User.Username)

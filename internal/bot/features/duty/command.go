@@ -1,6 +1,7 @@
 package duty
 
 import (
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
-	"github.com/disgoorg/disgo/rest"
 	"github.com/disgoorg/snowflake/v2"
 )
 
@@ -38,17 +38,6 @@ var Commands = []discord.ApplicationCommandCreate{
 	},
 }
 
-func respondEphemeral(r interface {
-	CreateMessage(discord.MessageCreate, ...rest.RequestOpt) error
-}, content string) {
-	if err := r.CreateMessage(discord.MessageCreate{
-		Content: content,
-		Flags:   discord.MessageFlagEphemeral,
-	}); err != nil {
-		logger.Error("Error responding to interaction", "error", err)
-	}
-}
-
 func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 	data := e.SlashCommandInteractionData()
 	if data.SubCommandName == nil {
@@ -63,9 +52,7 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 }
 
 func handleAdd(e *events.ApplicationCommandInteractionCreate) {
-	member := e.Member()
-	if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
-		respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
+	if !helpers.RequirePermission(e, discord.PermissionManageChannels, "Vous n'avez pas la permission de gérer les canaux.") {
 		return
 	}
 
@@ -80,13 +67,13 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 
 	botMember, err := client.Rest.GetMember(guildID, client.ID())
 	if err != nil {
-		respondEphemeral(e, "Erreur lors de la récupération des informations du bot.")
+		helpers.RespondEphemeral(e, "Erreur lors de la récupération des informations du bot.")
 		return
 	}
 
 	guild, err := client.Rest.GetGuild(guildID, false)
 	if err != nil {
-		respondEphemeral(e, "Erreur lors de la récupération du serveur.")
+		helpers.RespondEphemeral(e, "Erreur lors de la récupération du serveur.")
 		return
 	}
 
@@ -94,14 +81,14 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 
 	for _, r := range []discord.Role{dutyRole, onCallRole, offRadioRole} {
 		if r.Position >= botHighest {
-			respondEphemeral(e, "Un ou plusieurs rôles sont au-dessus ou au même niveau que le rôle le plus haut du bot.")
+			helpers.RespondEphemeral(e, "Un ou plusieurs rôles sont au-dessus ou au même niveau que le rôle le plus haut du bot.")
 			return
 		}
 	}
 
 	members, err := client.Rest.GetMembers(guildID, 1000, 0)
 	if err != nil {
-		respondEphemeral(e, "Erreur lors de la récupération des membres.")
+		helpers.RespondEphemeral(e, "Erreur lors de la récupération des membres.")
 		return
 	}
 
@@ -115,7 +102,7 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 	msg, err := client.Rest.CreateMessage(channelID, discord.NewMessageCreateV2(components...))
 	if err != nil {
 		logger.Error("Error sending duty message", "error", err)
-		respondEphemeral(e, "Erreur lors de l'envoi du message.")
+		helpers.RespondEphemeral(e, "Erreur lors de l'envoi du message.")
 		return
 	}
 
@@ -137,11 +124,11 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 
 	if err := database.DB.Create(&dm).Error; err != nil {
 		logger.Error("Error saving DutyManager", "error", err)
-		respondEphemeral(e, "Erreur lors de l'enregistrement en base de données.")
+		helpers.RespondEphemeral(e, "Erreur lors de l'enregistrement en base de données.")
 		return
 	}
 
-	stats.Record(guildID.String(), member.User.ID.String(), "duty.setup", map[string]any{
+	stats.Record(guildID.String(), e.Member().User.ID.String(), "duty.setup", map[string]any{
 		"channel_id":      channelID.String(),
 		"duty_role_id":    dutyRoleID,
 		"oncall_role_id":  onCallRoleID,
@@ -149,13 +136,11 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 		"logs_channel_id": logsChannelID,
 	})
 
-	respondEphemeral(e, "Gestionnaire de service créé avec succès.")
+	helpers.RespondEphemeral(e, "Gestionnaire de service créé avec succès.")
 }
 
 func handleRemove(e *events.ApplicationCommandInteractionCreate) {
-	member := e.Member()
-	if member == nil || !member.Permissions.Has(discord.PermissionManageChannels) {
-		respondEphemeral(e, "Vous n'avez pas la permission de gérer les canaux.")
+	if !helpers.RequirePermission(e, discord.PermissionManageChannels, "Vous n'avez pas la permission de gérer les canaux.") {
 		return
 	}
 
@@ -166,32 +151,24 @@ func handleRemove(e *events.ApplicationCommandInteractionCreate) {
 
 	var dm models.DutyManager
 	if err := database.DB.Where("guild_id = ? AND message_id = ?", guildID.String(), messageID).First(&dm).Error; err != nil {
-		respondEphemeral(e, "Gestionnaire de service introuvable.")
+		helpers.RespondEphemeral(e, "Gestionnaire de service introuvable.")
 		return
 	}
 
-	chanID, err := snowflake.Parse(dm.ChannelID)
-	if err == nil {
-		msgSnowflake, err2 := snowflake.Parse(messageID)
-		if err2 == nil {
-			if err3 := e.Client().Rest.DeleteMessage(chanID, msgSnowflake); err3 != nil {
-				logger.Error("Error deleting duty message", "error", err3)
-			}
-		}
-	}
+	helpers.DeleteMessageByIDs(e.Client(), dm.ChannelID, messageID)
 
 	if err := database.DB.Delete(&dm).Error; err != nil {
 		logger.Error("Error deleting DutyManager", "error", err)
-		respondEphemeral(e, "Erreur lors de la suppression.")
+		helpers.RespondEphemeral(e, "Erreur lors de la suppression.")
 		return
 	}
 
-	stats.Record(guildID.String(), member.User.ID.String(), "duty.remove", map[string]any{
+	stats.Record(guildID.String(), e.Member().User.ID.String(), "duty.remove", map[string]any{
 		"channel_id": dm.ChannelID,
 		"message_id": messageID,
 	})
 
-	respondEphemeral(e, "Gestionnaire de service supprimé avec succès.")
+	helpers.RespondEphemeral(e, "Gestionnaire de service supprimé avec succès.")
 }
 
 func memberDisplayName(m discord.Member) string {
