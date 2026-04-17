@@ -15,14 +15,14 @@ import (
 )
 
 var (
-	guildCounts   = make(map[string][2]int) // [onDuty, offRadio] per guild
+	guildCounts   = make(map[string][2]int) // [onDuty, onCall] per guild
 	guildCountsMu sync.Mutex
 )
 
-func setGuildCounts(guildID string, onDuty, offRadio int) {
+func setGuildCounts(guildID string, onDuty, onCall int) {
 	guildCountsMu.Lock()
 	defer guildCountsMu.Unlock()
-	guildCounts[guildID] = [2]int{onDuty, offRadio}
+	guildCounts[guildID] = [2]int{onDuty, onCall}
 }
 
 func updateBotPresence(client *bot.Client) {
@@ -34,7 +34,7 @@ func updateBotPresence(client *bot.Client) {
 	}
 	guildCountsMu.Unlock()
 
-	status := fmt.Sprintf("%d en service • %d hors service", totalOnDuty, totalOffRadio)
+	status := fmt.Sprintf("%d en service • %d en astreinte", totalOnDuty, totalOffRadio)
 	if err := client.SetPresence(context.Background(), gateway.WithWatchingActivity(status)); err != nil {
 		logger.Error("Error updating bot presence", "error", err)
 	}
@@ -63,13 +63,13 @@ func InitPresence(client *bot.Client) {
 				onDuty = len(membersWithRole(members, rid))
 			}
 		}
-		offRadio := 0
-		if dm.OffRadioRoleID != nil {
-			if rid, err := snowflake.Parse(*dm.OffRadioRoleID); err == nil {
-				offRadio = len(membersWithRole(members, rid))
+		onCall := 0
+		if dm.OnCallRoleID != nil {
+			if rid, err := snowflake.Parse(*dm.OnCallRoleID); err == nil {
+				onCall = len(membersWithRole(members, rid))
 			}
 		}
-		setGuildCounts(dm.GuildID, onDuty, offRadio)
+		setGuildCounts(dm.GuildID, onDuty, onCall)
 	}
 
 	updateBotPresence(client)

@@ -182,7 +182,7 @@ func performEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.Duty
 		}
 	}
 
-	setGuildCounts(guildID.String(), len(onDuty), len(offRadio))
+	setGuildCounts(guildID.String(), len(onDuty), len(onCall))
 
 	components := BuildDutyComponents(onDuty, onCall, offRadio)
 	chanID, err := snowflake.Parse(dm.ChannelID)
