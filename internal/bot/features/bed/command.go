@@ -3,6 +3,7 @@ package bed
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 
 	"LsmsBot/internal/database"
@@ -282,6 +283,10 @@ func buildBedButtons(assignments []models.BedAssignment) []discord.LayoutCompone
 	if len(assignments) == 0 {
 		return []discord.LayoutComponent{}
 	}
+
+	sort.Slice(assignments, func(i, j int) bool {
+		return assignments[i].BedLetter < assignments[j].BedLetter
+	})
 
 	var buttons []discord.InteractiveComponent
 	for _, a := range assignments {

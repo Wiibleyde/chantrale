@@ -24,7 +24,7 @@ func Init() {
 	if err != nil {
 		logger.Fatal("Failed to connect to database", "error", err)
 	}
-	if err := db.AutoMigrate(&models.DutyManager{}, &models.BedManager{}, &models.BedAssignment{}, &models.StatEvent{}); err != nil {
+	if err := db.AutoMigrate(&models.DutyManager{}, &models.BedManager{}, &models.BedAssignment{}, &models.MortuaryManager{}, &models.MortuaryAssignment{}, &models.StatEvent{}); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	}
 	DB = db
