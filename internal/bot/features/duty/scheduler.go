@@ -27,7 +27,6 @@ func StartScheduler(client *bot.Client) {
 			time.Sleep(time.Until(next))
 			logger.Info("Running daily duty reset at 05:55")
 			runReset(client)
-			botStartTime = time.Now()
 		}
 	}()
 }

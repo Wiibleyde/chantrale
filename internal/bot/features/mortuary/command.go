@@ -248,10 +248,7 @@ func buildMortuaryButtons(assignments []models.MortuaryAssignment) []discord.Lay
 
 	var buttons []discord.InteractiveComponent
 	for _, a := range assignments {
-		label := fmt.Sprintf("Casier %d - %s", a.LockerNumber, a.Name)
-		if len(label) > 80 {
-			label = label[:80]
-		}
+		label := fmt.Sprintf("Casier %d", a.LockerNumber)
 
 		buttons = append(buttons, discord.ButtonComponent{
 			Label:    label,
