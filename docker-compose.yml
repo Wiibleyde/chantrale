@@ -10,7 +10,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chantrale"]
+      test: [ "CMD-SHELL", "pg_isready -U chantrale" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,6 +22,8 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
+    ports:
+      - "${API_PORT:-3000}:${API_PORT:-3000}"
     depends_on:
       postgres:
         condition: service_healthy

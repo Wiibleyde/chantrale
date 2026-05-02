@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"LsmsBot/internal/api"
 	"LsmsBot/internal/bot/embeds"
 	"LsmsBot/internal/bot/features/bed"
 	"LsmsBot/internal/bot/features/doctor"
@@ -114,6 +115,8 @@ func Run() {
 	}
 	defer client.Close(ctx)
 
+	apiApp := api.Run(client)
+
 	logger.Info("Bot is running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -121,6 +124,12 @@ func Run() {
 
 	logger.Info("Sending duty summary before shutdown...")
 	duty.SendShutdownSummary(client)
+
+	if apiApp != nil {
+		if err := apiApp.Shutdown(); err != nil {
+			logger.Error("Error shutting down API server", "error", err)
+		}
+	}
 
 	logger.Info("Shutting down...")
 }
