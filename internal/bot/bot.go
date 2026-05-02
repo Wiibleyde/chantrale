@@ -96,12 +96,15 @@ func Run() {
 		embeds.Init(e.User.EffectiveAvatarURL())
 		duty.StartScheduler(client)
 		duty.InitPresence(client)
+		var guildSnowflakes []snowflake.ID
 		for _, guildID := range cfg.GuildIDs {
 			guildSnowflake := snowflake.MustParse(guildID)
+			guildSnowflakes = append(guildSnowflakes, guildSnowflake)
 			if _, err := e.Client().Rest.SetGuildCommands(e.Application.ID, guildSnowflake, allCommands); err != nil {
 				logger.Error("Cannot set commands", "guild", guildID, "error", err)
 			}
 		}
+		duty.WarmMemberRoleCache(client, guildSnowflakes)
 		logger.Info("Commands registered")
 	}))
 
