@@ -51,8 +51,8 @@ var Commands = []discord.ApplicationCommandCreate{
 }
 
 func lockerChoices() []discord.ApplicationCommandOptionChoiceInt {
-	choices := make([]discord.ApplicationCommandOptionChoiceInt, 16)
-	for i := 0; i < 16; i++ {
+	choices := make([]discord.ApplicationCommandOptionChoiceInt, totalLockers)
+	for i := range totalLockers {
 		choices[i] = discord.ApplicationCommandOptionChoiceInt{
 			Name:  fmt.Sprintf("Casier %d", i+1),
 			Value: i + 1,

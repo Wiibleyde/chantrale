@@ -10,7 +10,7 @@ import (
 	"github.com/disgoorg/disgo/discord"
 )
 
-const totalLockers = 12
+const totalLockers = 16
 
 func BuildMortuaryEmbed(assignments []models.MortuaryAssignment) discord.Embed {
 	embed := embeds.BaseEmbed()

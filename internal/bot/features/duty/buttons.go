@@ -7,7 +7,6 @@ import (
 	"LsmsBot/internal/logger"
 	"LsmsBot/internal/stats"
 
-	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
 )
@@ -137,34 +136,5 @@ func handleRoleToggle(e *events.ComponentInteractionCreate, roleType string) {
 		"display_name": displayName,
 	})
 
-	if dm.LogsChannelID != nil {
-		if logsChannelID, err := snowflake.Parse(*dm.LogsChannelID); err == nil {
-			var comps []discord.LayoutComponent
-			switch roleType {
-			case "duty":
-				comps = BuildDutyUpdateComponents(displayName, take)
-				if take {
-					trackDuty(guildID.String(), displayName)
-				}
-			case "oncall":
-				comps = BuildOnCallUpdateComponents(displayName, take)
-				if take {
-					trackOnCall(guildID.String(), displayName)
-				}
-			case "offradio":
-				comps = BuildOffRadioUpdateComponents(displayName, take)
-				if take {
-					trackOffRadio(guildID.String(), displayName)
-				}
-			}
-			if comps != nil {
-				if _, err := client.Rest.CreateMessage(logsChannelID, discord.NewMessageCreateV2(comps...)); err != nil {
-					logger.Error("Error sending log embed", "error", err)
-				}
-			}
-		}
-	}
-
 	scheduleEmbedUpdate(client, guildID, dm)
 }
-
